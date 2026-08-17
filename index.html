@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>냥이유 제휴링크 꿀팁저장소</title>
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --page:#f2f1ec; --card:#ffffff; --ink:#141414; --ink2:#5c5a54; --muted:#96938a;
+    --lime:#dcef79; --blue:#cfe1f5;
+    --line:rgba(20,20,20,0.14); --up:#1c7a1c; --down:#c93a3a;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--page); font-family:system-ui,-apple-system,"Segoe UI","Apple SD Gothic Neo",sans-serif; color:var(--ink); }
+  em.sf { font-family:Georgia,"Times New Roman",serif; font-style:italic; font-weight:500; line-height:1.1; }
+  button { font-family:inherit; }
+  .shell { max-width:480px; margin:0 auto; min-height:100dvh; padding-bottom:84px; }
+  .hidden { display:none !important; }
+
+  /* 게이트 */
+  .gate { position:fixed; inset:0; background:var(--page); z-index:50; display:flex; align-items:center; justify-content:center; }
+  .gate-card { width:min(360px,86vw); text-align:center; }
+  .gate-logo { font-size:15px; font-weight:600; color:var(--ink2); }
+  .gate-title { font-size:30px; font-weight:800; letter-spacing:-0.03em; margin:6px 0 12px; line-height:1.3; word-break:keep-all; }
+  .gate-sub { font-size:13px; color:var(--ink2); margin:0 0 26px; line-height:1.7; }
+  .gate-row { display:flex; gap:8px; }
+  .gate-row input { flex:1; border:1px solid var(--line); border-radius:999px; padding:13px 18px; font-size:15px; background:var(--card); outline:none; letter-spacing:0.18em; text-align:center; min-width:0; }
+  .gate-row input:focus { border-color:var(--ink); }
+  .gate-row button, .gbtn { border:none; background:var(--ink); color:#fff; border-radius:999px; padding:13px 24px; font-size:14px; font-weight:600; cursor:pointer; }
+  .gbtn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; }
+  .gbtn img { width:18px; height:18px; background:#fff; border-radius:50%; padding:2px; }
+  .gate-note { font-size:11px; color:var(--muted); margin-top:14px; line-height:1.7; }
+  .gate-err { font-size:12px; color:var(--down); margin-top:10px; min-height:16px; }
+
+  /* 프로필 설정 모달 */
+  .modal { position:fixed; inset:0; background:rgba(20,20,20,0.45); z-index:55; display:flex; align-items:center; justify-content:center; padding:20px; }
+  .modal-card { background:var(--card); border-radius:24px; padding:24px 22px; width:min(400px,100%); }
+  .modal-card h3 { margin:0 0 4px; font-size:18px; }
+  .modal-card .sub { font-size:12.5px; color:var(--ink2); margin:0 0 16px; }
+  .field { margin-bottom:12px; }
+  .field label { display:block; font-size:12px; font-weight:600; margin-bottom:5px; }
+  .field input, .field textarea { width:100%; border:1px solid var(--line); border-radius:14px; padding:11px 14px; font-size:14px; outline:none; font-family:inherit; resize:none; }
+  .field input:focus, .field textarea:focus { border-color:var(--ink); }
+  .field .help { font-size:11px; color:var(--muted); margin-top:4px; }
+
+  /* 헤더 */
+  header.site { position:sticky; top:0; z-index:30; background:rgba(242,241,236,0.94); backdrop-filter:blur(8px); }
+  .topline { display:flex; align-items:center; justify-content:space-between; padding:14px 18px 8px; gap:10px; }
+  .logo { line-height:1.15; }
+  .logo .l1 { font-size:16px; font-weight:800; letter-spacing:-0.02em; word-break:keep-all; }
+  .logo .l2 { font-size:10.5px; color:var(--ink2); }
+  .fresh { font-size:11px; border:1px solid var(--line); border-radius:999px; padding:5px 11px; background:var(--card); color:var(--ink2); white-space:nowrap; }
+  .fresh b { color:var(--ink); }
+  .pcnav { display:none; gap:4px; }
+  .pcnav button { border:none; background:none; font-size:13.5px; padding:8px 14px; border-radius:999px; color:var(--ink2); cursor:pointer; }
+  .pcnav button.on { background:var(--ink); color:#fff; font-weight:600; }
+  .ptbar { display:flex; align-items:center; gap:10px; padding:6px 18px 12px; }
+  .ptbar .who { font-size:12px; font-weight:700; white-space:nowrap; max-width:110px; overflow:hidden; text-overflow:ellipsis; }
+  .track { flex:1; height:10px; border-radius:999px; background:#e4e2da; overflow:hidden; }
+  .fill { height:100%; width:0%; border-radius:999px; background:linear-gradient(90deg,var(--lime),#b9d94e); transition:width .8s cubic-bezier(.16,1,.3,1); }
+  .ptbar .num { font-size:12px; color:var(--ink2); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ptbar .num b { color:var(--ink); font-size:13px; }
+
+  /* 히어로/칩/카드/행 — 시안 v2와 동일 */
+  .hero { margin:10px 16px 6px; background:linear-gradient(135deg,var(--lime) 0%,#eef6c2 70%); border-radius:24px; padding:20px 20px 18px; position:relative; }
+  .hero .tag { display:inline-block; font-size:11px; background:rgba(255,255,255,0.78); border-radius:999px; padding:4px 11px; margin-bottom:10px; }
+  .hero h1 { font-size:24px; margin:0 0 6px; letter-spacing:-0.02em; line-height:1.3; padding-bottom:2px; word-break:keep-all; max-width:calc(100% - 92px); }
+  .hero p { font-size:12.5px; color:#3c4222; margin:0; line-height:1.6; max-width:min(280px, calc(100% - 92px)); }
+  .hero .score-float { position:absolute; top:18px; right:16px; background:#fff; border-radius:16px; padding:10px 14px; text-align:center; }
+  .hero .score-float .n { font-size:24px; font-weight:750; letter-spacing:-0.03em; }
+  .hero .score-float .l { font-size:9.5px; color:var(--muted); }
+  .chips { display:flex; gap:7px; overflow-x:auto; padding:14px 16px 4px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:none; font-size:12.5px; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--card); color:var(--ink2); cursor:pointer; white-space:nowrap; }
+  .chip.on { background:var(--ink); color:#fff; border-color:var(--ink); font-weight:600; }
+  .subtabs { display:flex; gap:6px; padding:10px 16px 0; }
+  .subtab { font-size:12px; padding:7px 14px; border-radius:999px; border:1px solid var(--line); background:transparent; color:var(--ink2); cursor:pointer; }
+  .subtab.on { background:var(--blue); border-color:var(--blue); color:var(--ink); font-weight:600; }
+  .sec-label { font-size:11.5px; color:var(--muted); padding:14px 20px 6px; }
+  .cardgrid { display:block; }
+  .card { background:var(--card); border-radius:24px; margin:0 16px 12px; padding:16px 18px 14px; }
+  .card .head { display:flex; align-items:center; gap:12px; }
+  .num { font-size:12px; color:var(--muted); font-weight:600; width:24px; }
+  .kw { font-size:16.5px; font-weight:700; flex:1; }
+  .kw .cat { display:block; font-size:11px; color:var(--muted); font-weight:400; margin-top:1px; }
+  .score { text-align:right; }
+  .score .n { font-size:21px; font-weight:750; letter-spacing:-0.02em; }
+  .score .l { font-size:9.5px; color:var(--muted); }
+  .meterrow { display:flex; gap:6px; margin:11px 0 0; flex-wrap:wrap; }
+  .pill { font-size:11px; border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--ink2); }
+  .pill.up { color:var(--up); border-color:rgba(28,122,28,0.35); }
+  .pill.down2 { color:var(--down); border-color:rgba(201,58,58,0.3); }
+  .pill.hot { background:var(--lime); border-color:var(--lime); color:#3c4222; font-weight:600; }
+  .sojae { margin:12px 0 0; padding:12px 14px; background:var(--page); border-radius:16px; }
+  .sojae .t { font-size:10.5px; color:var(--muted); margin-bottom:6px; }
+  .sojae ul { margin:0; padding-left:16px; }
+  .sojae li { font-size:13px; line-height:1.9; }
+  .linkrow { display:flex; gap:8px; margin-top:12px; }
+  .btn { flex:1; text-align:center; font-size:12px; font-weight:600; border-radius:999px; padding:10px 6px; text-decoration:none; border:none; cursor:pointer; }
+  .btn.dark { background:var(--ink); color:#fff; }
+  .btn.ghost { border:1px solid var(--line); color:var(--ink); background:transparent; }
+  .btn:active { transform:scale(0.98); }
+  .btn[disabled] { opacity:0.5; cursor:default; }
+  .deal { display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:7px 0; color:var(--ink); text-decoration:none; border-bottom:1px dashed var(--line); }
+  .deal:last-child { border-bottom:0; }
+  .deal .m { color:var(--ink2); white-space:nowrap; }
+  .rows { margin:6px 16px 12px; background:var(--card); border-radius:24px; overflow:hidden; }
+  .row { border-bottom:1px solid var(--page); }
+  .row:last-child { border-bottom:0; }
+  .row .bar { display:flex; align-items:center; gap:10px; padding:13px 16px; cursor:pointer; }
+  .row .r-kw { flex:1; font-size:14px; font-weight:600; }
+  .row .r-score { font-size:14px; font-weight:700; width:36px; text-align:right; }
+  .row .r-wow { font-size:11.5px; width:56px; text-align:right; }
+  .r-wow.up { color:var(--up); } .r-wow.down { color:var(--down); }
+  .row .open { display:none; padding:0 16px 14px; }
+  .row.expanded { background:#fbfaf6; }
+  .row.expanded .open { display:block; }
+  .caret { font-size:10px; color:var(--muted); transition:transform .15s; }
+  .row.expanded .caret { transform:rotate(180deg); }
+  .spark { flex:none; }
+
+  /* 프로필/미션 */
+  .profile { margin:10px 16px 12px; background:var(--card); border-radius:24px; padding:18px; }
+  .profile .top { display:flex; gap:14px; align-items:center; }
+  .avatar { width:56px; height:56px; border-radius:50%; background:var(--blue); flex:none; overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:26px; }
+  .avatar img { width:100%; height:100%; object-fit:cover; }
+  .pname { font-size:17px; font-weight:800; }
+  .pbio { font-size:12.5px; color:var(--ink2); margin-top:2px; line-height:1.5; }
+  .pedit { margin-left:auto; align-self:flex-start; font-size:11px; border:1px solid var(--line); background:none; border-radius:999px; padding:5px 11px; color:var(--ink2); cursor:pointer; flex:none; }
+  .pstats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:14px; }
+  .pstat { background:var(--page); border-radius:14px; padding:10px 6px; text-align:center; }
+  .pstat .v { font-size:16px; font-weight:750; font-variant-numeric:tabular-nums; }
+  .pstat .k { font-size:10px; color:var(--muted); margin-top:1px; }
+  .badges { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+  .badge-p { font-size:11px; background:var(--page); border-radius:999px; padding:5px 11px; }
+  .mission { margin:0 16px 12px; background:linear-gradient(135deg,var(--blue) 0%,#e3eefb 80%); border-radius:24px; padding:18px; }
+  .mission h3 { margin:0 0 6px; font-size:16px; }
+  .mission p { margin:0 0 12px; font-size:12.5px; color:#2c3a4d; line-height:1.6; }
+  .submitrow { display:flex; gap:8px; }
+  .submitrow input { flex:1; border:1px solid rgba(20,20,20,0.18); border-radius:999px; padding:11px 16px; font-size:13px; background:#fff; outline:none; min-width:0; }
+  #toast { position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; font-size:13px; padding:11px 20px; border-radius:999px; opacity:0; pointer-events:none; transition:all .35s cubic-bezier(.16,1,.3,1); z-index:60; }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+  .lvpath { margin:0 16px 12px; background:var(--card); border-radius:24px; padding:16px 18px; }
+  .lvpath .t { font-size:13px; font-weight:700; margin-bottom:12px; }
+  .lv-line { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; }
+  .lv { flex:none; background:var(--page); border-radius:16px; padding:11px 13px; min-width:92px; text-align:center; }
+  .lv.cur { background:var(--lime); }
+  .lv .e { font-size:19px; } .lv .n { font-size:11.5px; font-weight:700; margin-top:3px; } .lv .p { font-size:10px; color:var(--ink2); }
+
+  /* 가이드 */
+  .guide { margin:10px 16px 12px; background:var(--card); border-radius:24px; padding:18px 20px; }
+  .guide h3 { font-size:15px; margin:0 0 8px; }
+  .guide p, .guide li { font-size:13px; color:var(--ink2); line-height:1.8; }
+  .guide ol { padding-left:18px; margin:6px 0; }
+
+  nav.bottom { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:rgba(255,255,255,0.94); backdrop-filter:blur(10px); border-top:1px solid var(--line); display:flex; z-index:40; }
+  nav.bottom button { flex:1; border:none; background:none; padding:10px 0 12px; font-size:11px; color:var(--muted); cursor:pointer; }
+  nav.bottom button.on { color:var(--ink); font-weight:700; }
+  nav.bottom button .ico { display:block; font-size:16px; margin-bottom:2px; }
+  .footer-note { text-align:center; font-size:10px; color:var(--muted); padding:10px 20px 20px; line-height:1.7; }
+  .view { display:none; } .view.show { display:block; }
+  .placeholder { margin:20px 16px; background:var(--card); border-radius:24px; padding:28px 20px; text-align:center; color:var(--muted); font-size:13px; line-height:1.8; }
+  .offline { margin:10px 16px; background:#fff4e0; border-radius:14px; padding:10px 14px; font-size:12px; color:#7a5b1e; }
+
+  @media (min-width:960px) {
+    .shell { max-width:1060px; padding-bottom:40px; }
+    .topline { padding:20px 24px 10px; }
+    .logo .l1 { font-size:20px; } .logo .l2 { font-size:11.5px; }
+    .pcnav { display:flex; }
+    nav.bottom { display:none; }
+    .ptbar { padding:6px 24px 14px; max-width:560px; }
+    .hero { margin:12px 24px 8px; padding:30px 32px 26px; }
+    .hero h1 { font-size:32px; }
+    .hero p { max-width:420px; font-size:13.5px; }
+    .chips { padding:16px 24px 4px; flex-wrap:wrap; }
+    .cardgrid { display:grid; grid-template-columns:1fr 1fr; gap:0 8px; margin:0 8px; }
+    .rows, .profile, .mission, .lvpath, .guide, .offline { margin-left:24px; margin-right:24px; }
+    .sec-label { padding:16px 28px 8px; }
+    .mgrid { display:grid; grid-template-columns:1.1fr 0.9fr; gap:0 8px; align-items:start; }
+    .mgrid > div > * { margin-left:12px; margin-right:12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 1) 입장코드 게이트 -->
+<div class="gate" id="gate-code">
+  <div class="gate-card">
+    <div class="gate-logo">meow_cps</div>
+    <div class="gate-title">냥이유 제휴링크<br>꿀팁저장소</div>
+    <p class="gate-sub">수강생 전용 · 오늘 팔리는 소재를 <em class="sf">매일 3번</em> 물어다 드립니다</p>
+    <div class="gate-row">
+      <input id="code-input" placeholder="입장코드" maxlength="12" autocomplete="off">
+      <button id="code-btn">입장</button>
+    </div>
+    <div class="gate-err" id="code-err"></div>
+    <p class="gate-note">강의에서 받은 입장코드를 입력하세요</p>
+  </div>
+</div>
+
+<!-- 2) 구글 로그인 게이트 -->
+<div class="gate hidden" id="gate-login">
+  <div class="gate-card">
+    <div class="gate-logo">meow_cps</div>
+    <div class="gate-title">거의 다 왔어요</div>
+    <p class="gate-sub">구글 계정으로 로그인하면<br>포인트와 프로필이 어느 기기에서나 유지돼요</p>
+    <button class="gbtn" id="google-btn">
+      <img alt="" src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg">
+      구글로 계속하기
+    </button>
+    <div class="gate-err" id="login-err"></div>
+    <p class="gate-note">가입 절차 없음 · 버튼 한 번이면 끝</p>
+  </div>
+</div>
+
+<!-- 3) 최초 프로필 설정 -->
+<div class="modal hidden" id="profile-modal">
+  <div class="modal-card">
+    <h3 id="pm-title">프로필 만들기</h3>
+    <p class="sub">리더보드에 표시될 정보예요. 언제든 바꿀 수 있어요.</p>
+    <div class="field">
+      <label for="pm-nick">닉네임</label>
+      <input id="pm-nick" maxlength="12" placeholder="예: 살구언니">
+      <div class="help">2~12자</div>
+    </div>
+    <div class="field">
+      <label for="pm-bio">자기소개</label>
+      <textarea id="pm-bio" rows="2" maxlength="60" placeholder="예: 애 둘 키우며 부수입 만드는 중"></textarea>
+    </div>
+    <button class="gbtn" id="pm-save">저장하고 시작하기</button>
+    <div class="gate-err" id="pm-err"></div>
+  </div>
+</div>
+
+<div class="shell hidden" id="app">
+  <header class="site">
+    <div class="topline">
+      <div class="logo">
+        <div class="l1">냥이유 제휴링크 꿀팁저장소</div>
+        <div class="l2">meow_cps · 수강생 전용</div>
+      </div>
+      <div class="pcnav">
+        <button class="on" data-v="v-home">홈</button>
+        <button data-v="v-mission">미션</button>
+        <button data-v="v-report">결산</button>
+        <button data-v="v-guide">가이드</button>
+      </div>
+      <div class="fresh" id="fresh">불러오는 중</div>
+    </div>
+    <div class="ptbar">
+      <span class="who" id="who">🐾 -</span>
+      <div class="track"><div class="fill" id="fill"></div></div>
+      <span class="num" id="ptnum"><b>0</b>p</span>
+    </div>
+  </header>
+
+  <div id="offline-note" class="offline hidden">지금은 미리보기 모드예요. 미션·포인트 기능은 온라인 배포 후에 켜집니다.</div>
+
+  <!-- 홈 -->
+  <div class="view show" id="v-home">
+    <div class="hero" id="hero"></div>
+    <div class="chips" id="chips"></div>
+    <div class="subtabs hidden" id="subtabs">
+      <button class="subtab on" data-s="커넥트">쇼핑 커넥트</button>
+      <button class="subtab" data-s="마이리얼트립">마이리얼트립</button>
+    </div>
+    <div class="sec-label" id="tab-label"></div>
+    <div id="tab-content"></div>
+    <div class="footer-note">기회 점수 = 분야 내 수요 × 전주 대비 성장 × 블로그 경쟁 여유<br>검색·클릭 기준 상대지수이며 실제 거래액이 아닙니다 · 출처: 네이버 데이터랩 Open API, 마이리얼트립</div>
+  </div>
+
+  <!-- 미션 -->
+  <div class="view" id="v-mission">
+    <div class="mgrid">
+      <div>
+        <div class="profile">
+          <div class="top">
+            <div class="avatar" id="avatar">😼</div>
+            <div style="min-width:0">
+              <div class="pname" id="p-name">-</div>
+              <div class="pbio" id="p-bio"></div>
+            </div>
+            <button class="pedit" id="p-edit">프로필 수정</button>
+          </div>
+          <div class="pstats">
+            <div class="pstat"><div class="v" id="s-pts">0p</div><div class="k">포인트</div></div>
+            <div class="pstat"><div class="v" id="s-subs">0</div><div class="k">제출한 글</div></div>
+            <div class="pstat"><div class="v" id="s-streak">0일</div><div class="k">연속 미션</div></div>
+            <div class="pstat"><div class="v" id="s-joined">-</div><div class="k">함께한 날</div></div>
+          </div>
+          <div class="badges" id="badges"></div>
+        </div>
+        <div class="mission">
+          <h3>오늘의 미션 <em class="sf">+10p</em></h3>
+          <p>오늘의 추천에서 소재를 골라 포스팅하고 URL을 제출하세요. 급상승 소재 보너스는 검수 후 지급돼요.</p>
+          <div class="submitrow">
+            <input id="murl" placeholder="블로그 포스팅 URL 붙여넣기" inputmode="url">
+            <button class="btn dark" id="msubmit" style="flex:none; padding:10px 20px">제출</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="lvpath">
+          <div class="t">레벨 로드맵</div>
+          <div class="lv-line" id="lv-line"></div>
+        </div>
+        <div class="card" style="margin-top:0">
+          <div class="head"><span class="kw">리더보드</span><span class="pill">실시간</span></div>
+          <div style="margin-top:10px" id="leaderboard"><div class="footer-note">불러오는 중…</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 결산 -->
+  <div class="view" id="v-report">
+    <div class="placeholder">주간 결산은 매주 월요일 아침에 올라와요.<br>추천 적중률 · 최고 급상승 소재 · 이번 주 레벨업 명단</div>
+  </div>
+
+  <!-- 가이드 -->
+  <div class="view" id="v-guide">
+    <div class="guide">
+      <h3>쇼핑 커넥트로 링크 만들기</h3>
+      <ol>
+        <li>네이버에서 "쇼핑 커넥트" 검색 → 본인 네이버 계정으로 크리에이터 가입</li>
+        <li>추천 키워드의 [상품 보기]로 상품을 고르고, 커넥트에서 같은 상품을 검색</li>
+        <li>[링크 만들기]로 제휴링크 발급 → 블로그 글에 붙여넣기</li>
+      </ol>
+      <p>수수료율은 커넥트에서 본인 계정으로 확인하세요. 이 사이트는 소재 추천까지만 담당해요.</p>
+    </div>
+    <div class="guide">
+      <h3>세시간전으로 여행 링크 만들기 (마이리얼트립 포함)</h3>
+      <ol>
+        <li>세시간전(3hoursahead) 가입 → 제휴 프로그램 신청</li>
+        <li>여행 탭에서 추천된 상품을 세시간전에서 검색 → 제휴링크 발급</li>
+        <li>마이리얼트립뿐 아니라 아고다·클룩 등 여러 여행 플랫폼 링크를 한 곳에서 만들 수 있어요</li>
+      </ol>
+    </div>
+    <div class="guide">
+      <h3>기회 점수 읽는 법</h3>
+      <p><strong>수요</strong>(분야에서 얼마나 검색되나) × <strong>성장</strong>(지난주보다 뜨는 중인가) × <strong>경쟁 여유</strong>(블로그 글이 적은가)를 곱한 값이에요. 점수가 높을수록 "오늘 쓰면 노출과 수익 기대가 큰" 소재입니다. 급상승 뱃지가 붙은 소재는 24시간 안에 쓰는 게 유리해요.</p>
+    </div>
+    <div class="guide">
+      <h3>포인트와 레벨</h3>
+      <p>포스팅 제출 +10p · 추천 소재 사용 +5p · 급상승 소재 24시간 내 +10p · 7일 연속 +20p (보너스는 검수 후 지급). 레벨: 새싹 → 초보 셀러(50p) → 키워드 헌터(150p) → 트렌드 마스터(300p) → 커넥트 프로(600p).</p>
+    </div>
+  </div>
+
+  <nav class="bottom">
+    <button class="on" data-v="v-home"><span class="ico">🏠</span>홈</button>
+    <button data-v="v-mission"><span class="ico">🎯</span>미션</button>
+    <button data-v="v-report"><span class="ico">📊</span>결산</button>
+    <button data-v="v-guide"><span class="ico">📖</span>가이드</button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+/* ═══════════ 설정 ═══════════ */
+const ENTRY_CODE = "MEOW26";            // 입장코드 (바꾸려면 여기 수정)
+const LEVELS = [
+  { at:0,   e:"🌱", n:"새싹" },
+  { at:50,  e:"🐣", n:"초보 셀러" },
+  { at:150, e:"🔍", n:"키워드 헌터" },
+  { at:300, e:"📈", n:"트렌드 마스터" },
+  { at:600, e:"😼", n:"커넥트 프로" },
+];
+const firebaseConfig = {
+  apiKey: "AIzaSyAbv5Ud6J03AmnBGOdcsst0AXk4cfTg2Sg",
+  authDomain: "travelmeow-cps.firebaseapp.com",
+  projectId: "travelmeow-cps",
+  storageBucket: "travelmeow-cps.firebasestorage.app",
+  messagingSenderId: "1045642508855",
+  appId: "1:1045642508855:web:3388da769555a328301db2",
+};
+
+/* ═══════════ 리포트 데이터 ═══════════ */
+const CATS = ["전체","생활/건강","디지털/가전","식품","가구/인테리어","스포츠/레저","패션의류","출산/육아","화장품/미용","패션잡화","여가/생활편의","여행"];
+let DATA = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function loadData() {
+  try {
+    const r = await fetch("data.json", { cache:"no-store" });
+    if (r.ok) { DATA = await r.json(); return; }
+  } catch(e) {}
+  DATA = SAMPLE; // 파이프라인 첫 배포 전 샘플
+}
+
+function spark(vals, w=100, h=26, pad=3) {
+  if (!vals || vals.length < 2) return "";
+  const lo = Math.min(...vals), hi = Math.max(...vals), rng = (hi-lo)||1;
+  const pts = vals.map((v,i)=>`${(pad+(w-2*pad)*i/(vals.length-1)).toFixed(1)},${(h-pad-(h-2*pad)*(v-lo)/rng).toFixed(1)}`);
+  const [lx,ly] = pts[pts.length-1].split(",");
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts.join(" ")}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="#2a78d6"/></svg>`;
+}
+const wowHtml = v => v==null ? "" : (v>0.5 ? `<span class="r-wow up">▲ +${Math.round(v)}%</span>` : v<-0.5 ? `<span class="r-wow down">▼ ${Math.round(v)}%</span>` : `<span class="r-wow">- 0%</span>`);
+const compTxt = b => b==null ? "미측정" : b<300000 ? "낮음" : b<700000 ? "보통" : "높음";
+
+function linkBtns(it) {
+  if (it.deals) {
+    const rows = it.deals.map(d=>`<a class="deal" href="${esc(d.url)}" target="_blank" rel="noopener"><span>${esc(d.name)}</span><span class="m">⭐${esc(d.rating||"")} · ${esc(d.price||"")}</span></a>`).join("");
+    return `<div class="sojae"><div class="t">연결 상품 (실시간)</div>${rows}</div><div class="linkrow"><a class="btn dark" href="https://3hoursahead.com" target="_blank" rel="noopener">세시간전에서 링크 만들기</a></div>`;
+  }
+  const q = encodeURIComponent(it.kw);
+  return `<div class="linkrow"><a class="btn dark" href="https://search.shopping.naver.com/search/all?query=${q}" target="_blank" rel="noopener">상품 보기</a><a class="btn ghost" href="https://shoppingconnect.naver.com" target="_blank" rel="noopener">커넥트에서 링크 생성</a></div>`;
+}
+const sojaeHtml = it => it.sojae?.length ? `<div class="sojae"><div class="t">소재 추천</div><ul>${it.sojae.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : "";
+
+function cardHtml(it, i) {
+  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${it.hot?'<span class="pill hot">급상승</span>':""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${sojaeHtml(it)}${linkBtns(it)}</div>`;
+}
+function rowHtml(it, i) {
+  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open">${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
+}
+
+let curTab = "전체", curSub = "커넥트";
+function renderTab() {
+  const label = $("tab-label"), box = $("tab-content");
+  $("subtabs").classList.toggle("hidden", curTab !== "여행");
+  let key = curTab === "여행" ? `여행:${curSub}` : curTab;
+  const items = (DATA.tabs && DATA.tabs[key]) || [];
+  label.textContent = curTab === "전체" ? "종합 TOP 20" : `${curTab} TOP ${items.length||20}`;
+  if (!items.length) { box.innerHTML = `<div class="placeholder">이 탭 데이터는 다음 리포트 회차에 채워져요</div>`; return; }
+  if (curTab === "전체") box.innerHTML = `<div class="cardgrid">${items.map(cardHtml).join("")}</div>`;
+  else box.innerHTML = `<div class="rows">${items.map(rowHtml).join("")}</div>`;
+  box.querySelectorAll("[data-x]").forEach(b => b.addEventListener("click", () => b.parentNode.classList.toggle("expanded")));
+}
+function renderHome() {
+  $("fresh").innerHTML = `${esc(DATA.updated||"")} <b>${esc(DATA.round||"")}</b>`;
+  const h = DATA.hero || {};
+  $("hero").innerHTML = `<span class="tag">오늘의 1픽</span><h1>${esc(h.title||h.kw||"")}</h1><p>${esc(h.reason||"")}</p><div class="score-float"><div class="n">${Math.round(h.score||100)}</div><div class="l">기회 점수</div></div>`;
+  $("chips").innerHTML = CATS.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+  $("chips").querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
+    curTab = c.dataset.c; location.hash = encodeURIComponent(curTab);
+    $("chips").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on", x===c));
+    renderTab();
+  }));
+  document.querySelectorAll(".subtab").forEach(s => s.addEventListener("click", () => {
+    curSub = s.dataset.s;
+    document.querySelectorAll(".subtab").forEach(x=>x.classList.toggle("on", x===s));
+    renderTab();
+  }));
+  const hash = decodeURIComponent(location.hash.slice(1));
+  if (CATS.includes(hash)) curTab = hash;
+  renderTab();
+}
+
+/* ═══════════ 네비 ═══════════ */
+document.querySelectorAll("nav.bottom button, .pcnav button").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("nav.bottom button, .pcnav button").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll(`[data-v="${b.dataset.v}"]`).forEach(x=>x.classList.add("on"));
+  document.querySelectorAll(".view").forEach(v=>v.classList.remove("show"));
+  $(b.dataset.v).classList.add("show");
+  window.scrollTo({top:0});
+}));
+function toast(msg) { const t=$("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"), 2400); }
+
+/* ═══════════ 입장 흐름 ═══════════ */
+function enterApp() {
+  $("gate-code").classList.add("hidden");
+  $("gate-login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+}
+$("code-btn").addEventListener("click", checkCode);
+$("code-input").addEventListener("keydown", e => { if (e.key==="Enter") checkCode(); });
+function checkCode() {
+  const v = $("code-input").value.trim().toUpperCase();
+  if (v !== ENTRY_CODE) { $("code-err").textContent = "입장코드가 맞지 않아요"; return; }
+  localStorage.setItem("meow_gate", "1");
+  $("gate-code").classList.add("hidden");
+  startAuth();
+}
+
+/* ═══════════ Firebase ═══════════ */
+let fb = null, me = null, myDoc = null;
+async function startAuth() {
+  try {
+    const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const authMod = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js");
+    const fsMod  = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const app = initializeApp(firebaseConfig);
+    fb = { auth: authMod.getAuth(app), db: fsMod.getFirestore(app), authMod, fsMod };
+  } catch (e) {
+    // 오프라인/차단 환경: 둘러보기 모드
+    enterApp(); $("offline-note").classList.remove("hidden");
+    $("who").textContent = "🐾 둘러보기"; await loadData(); renderHome(); renderLevels(0); return;
+  }
+  const { onAuthStateChanged, GoogleAuthProvider, signInWithPopup } = fb.authMod;
+  $("google-btn").addEventListener("click", async () => {
+    try { await signInWithPopup(fb.auth, new GoogleAuthProvider()); }
+    catch (e) { $("login-err").textContent = "로그인에 실패했어요. 팝업 차단을 해제하고 다시 시도해주세요."; }
+  });
+  onAuthStateChanged(fb.auth, async user => {
+    if (!user) { $("gate-login").classList.remove("hidden"); return; }
+    me = user;
+    await afterLogin();
+  });
+}
+
+async function afterLogin() {
+  const { doc, getDoc } = fb.fsMod;
+  const snap = await getDoc(doc(fb.db, "users", me.uid));
+  if (!snap.exists()) { showProfileModal(false); return; }
+  bootApp();
+}
+function showProfileModal(editing) {
+  $("pm-title").textContent = editing ? "프로필 수정" : "프로필 만들기";
+  if (editing && myDoc) { $("pm-nick").value = myDoc.nickname||""; $("pm-bio").value = myDoc.bio||""; }
+  else if (me?.displayName) $("pm-nick").value = me.displayName.slice(0,12);
+  $("profile-modal").classList.remove("hidden");
+  $("pm-save").onclick = async () => {
+    const nick = $("pm-nick").value.trim(), bio = $("pm-bio").value.trim();
+    if (nick.length < 2) { $("pm-err").textContent = "닉네임은 2자 이상"; return; }
+    const { doc, setDoc, serverTimestamp } = fb.fsMod;
+    try {
+      await setDoc(doc(fb.db, "users", me.uid), {
+        nickname: nick, bio, photo: me.photoURL || "",
+        points: myDoc?.points ?? 0, subs: myDoc?.subs ?? 0,
+        streak: myDoc?.streak ?? 0, lastSubmit: myDoc?.lastSubmit ?? "",
+        joined: myDoc?.joined ?? serverTimestamp(), badges: myDoc?.badges ?? [],
+      }, { merge: true });
+      $("profile-modal").classList.add("hidden");
+      if (!editing) bootApp();
+    } catch(e) { $("pm-err").textContent = "저장 실패. 잠시 후 다시 시도해주세요."; }
+  };
+}
+
+function levelOf(p) { let cur = LEVELS[0], next = null; for (const l of LEVELS) { if (p >= l.at) cur = l; else { next = l; break; } } return { cur, next }; }
+function renderLevels(pts) {
+  const { cur } = levelOf(pts);
+  $("lv-line").innerHTML = LEVELS.map(l => `<div class="lv${l===cur?" cur":""}"><div class="e">${l.e}</div><div class="n">${l.n}</div><div class="p">${l.at}p${l===cur?" · 현재":""}</div></div>`).join("");
+}
+function renderMe(d) {
+  myDoc = d;
+  const pts = d.points||0, { cur, next } = levelOf(pts);
+  $("who").textContent = `🐾 ${d.nickname}`;
+  $("fill").style.width = next ? Math.min(100, (pts-cur.at)/(next.at-cur.at)*100) + "%" : "100%";
+  $("ptnum").innerHTML = next ? `<b>${pts}</b>p / ${next.at}p · ${next.n}까지 <b>${next.at-pts}</b>p` : `<b>${pts}</b>p · 최고 레벨`;
+  $("p-name").textContent = d.nickname; $("p-bio").textContent = d.bio||"";
+  $("avatar").innerHTML = d.photo ? `<img src="${esc(d.photo)}" alt="" referrerpolicy="no-referrer">` : "😼";
+  $("s-pts").textContent = pts + "p"; $("s-subs").textContent = d.subs||0;
+  $("s-streak").textContent = (d.streak||0) + "일";
+  if (d.joined?.toDate) { const j = d.joined.toDate(); $("s-joined").textContent = `${j.getMonth()+1}.${String(j.getDate()).padStart(2,"0")}`; }
+  $("badges").innerHTML = [`${cur.e} ${cur.n}`, ...(d.badges||[])].map(b=>`<span class="badge-p">${esc(b)}</span>`).join("");
+  renderLevels(pts);
+}
+
+async function bootApp() {
+  enterApp();
+  await loadData(); renderHome();
+  const { doc, onSnapshot, collection, query, orderBy, limit } = fb.fsMod;
+  onSnapshot(doc(fb.db, "users", me.uid), s => { if (s.exists()) renderMe(s.data()); });
+  onSnapshot(query(collection(fb.db, "users"), orderBy("points","desc"), limit(10)), qs => {
+    const medals = ["🥇","🥈","🥉"];
+    $("leaderboard").innerHTML = qs.docs.map((d,i) => {
+      const u = d.data(), mine = d.id === me.uid;
+      return `<div class="deal"><span>${medals[i]||String(i+1)} ${esc(u.nickname||"수강생")}${mine?" (나)":""}</span><span class="m">${u.points||0}p${u.streak>=3?` · ${u.streak}일 연속`:""}</span></div>`;
+    }).join("") || `<div class="footer-note">아직 아무도 없어요. 첫 제출의 주인공이 되어보세요!</div>`;
+  });
+  $("p-edit").addEventListener("click", () => showProfileModal(true));
+  $("msubmit").addEventListener("click", submitMission);
+  $("murl").addEventListener("keydown", e => { if (e.key==="Enter") submitMission(); });
+}
+
+const todayKst = () => new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
+async function submitMission() {
+  const input = $("murl"), url = input.value.trim();
+  if (!/^https?:\/\/(m\.)?blog\.naver\.com\//.test(url)) { toast("네이버 블로그 글 주소를 붙여넣어 주세요"); input.focus(); return; }
+  const btn = $("msubmit"); btn.disabled = true;
+  const { doc, collection, addDoc, runTransaction, serverTimestamp } = fb.fsMod;
+  try {
+    const today = todayKst();
+    await addDoc(collection(fb.db, "subs"), { uid: me.uid, nickname: myDoc?.nickname||"", url, date: today, at: serverTimestamp() });
+    await runTransaction(fb.db, async tx => {
+      const ref = doc(fb.db, "users", me.uid);
+      const s = await tx.get(ref); const d = s.data();
+      const yesterday = new Date(Date.now() + 9*3600*1000 - 86400000).toISOString().slice(0,10);
+      const streak = d.lastSubmit === today ? d.streak : (d.lastSubmit === yesterday ? (d.streak||0)+1 : 1);
+      tx.update(ref, { points: (d.points||0)+10, subs: (d.subs||0)+1, streak, lastSubmit: today });
+    });
+    input.value = ""; toast("제출 완료! +10p 🎉");
+  } catch(e) { toast("제출 실패. 네트워크를 확인해주세요"); }
+  btn.disabled = false;
+}
+
+/* ═══════════ 시작 ═══════════ */
+if (localStorage.getItem("meow_gate") === "1") { $("gate-code").classList.add("hidden"); startAuth(); }
+
+/* ═══════════ 샘플 데이터 (data.json 배포 전 폴백) ═══════════ */
+const SAMPLE = {
+  updated: "8.17 (월) 08:00 갱신", round: "샘플",
+  hero: { kw:"제습기", title:"제습기, 지금이 골든타임", score:100, reason:"어제 검색 +62% 급등, 경쟁은 아직 보통. 장마 끝 곰팡이 시즌 각도로." },
+  tabs: {
+    "전체": [
+      { kw:"제습기", cat:"디지털/가전", score:100, wow:26, hot:true, blog:379967, spark:[68,68,61,60,48,45,45,35,34,26,25,27,35,57], sojae:["8월 제습기 TOP 3 비교","가성비 제습기 추천","장마 끝 곰팡이 방지 제습 루틴"] },
+      { kw:"후쿠오카 여행", cat:"여행 · 마이리얼트립", score:94, wow:-3, blog:278622, spark:[84,81,81,80,75,72,83,100,100,92,82,82,70,80], sojae:["후쿠오카 유후인 버스투어 비교","후쿠오카 2박 3일 경비 정리","후쿠오카 이심·교통패스 준비물"],
+        deals:[{name:"라쿠투어 유후인·벳푸 버스투어",price:"52,900원~",rating:"4.9",url:"https://experiences.myrealtrip.com/products/3153599"},{name:"인디고트래블 버스투어",price:"59,000원~",rating:"5.0",url:"https://experiences.myrealtrip.com/products/3417851"},{name:"일본 eSIM 무제한",price:"1,200원~",rating:"4.4",url:"https://experiences.myrealtrip.com/products/3456828"}] },
+      { kw:"클렌징오일", cat:"화장품/미용", score:83, wow:11, blog:609285, spark:[69,99,77,102,81,73,66,81,66,100,51,39,54,73], sojae:["클렌징오일 TOP 3 비교","지성피부 클렌징오일 추천","선크림 지우는 법"] },
+      { kw:"로봇청소기", cat:"디지털/가전", score:69, wow:36, hot:true, blog:324439, spark:[26,25,26,24,23,26,27,25,23,27,24,25,27,36], sojae:["로봇청소기 TOP 3 비교","가성비 로봇청소기 추천","물걸레 일체형 장단점"] }
+    ],
+    "디지털/가전": [
+      { kw:"제습기", score:100, wow:26, hot:true, spark:[68,68,61,60,48,45,45,35,34,26,25,27,35,57], sojae:["8월 제습기 TOP 3 비교","가성비 제습기 추천","장마 끝 곰팡이 방지 제습 루틴"] },
+      { kw:"선풍기", score:73, wow:-49, spark:[100,97,100,97,83,76,74,75,62,54,49,33,42,38], sojae:["철수 전 마지막 선풍기 특가 모음","선풍기 보관·세척법"] },
+      { kw:"로봇청소기", score:69, wow:36, hot:true, spark:[26,25,26,24,23,26,27,25,23,27,24,25,27,36], sojae:["로봇청소기 TOP 3 비교","가성비 로봇청소기 추천"] },
+      { kw:"노트북", score:48, wow:-29, spark:[40,37,37,35,35,35,38,34,42,32,33,29,29,27], sojae:["개강 시즌 대학생 노트북 추천"] },
+      { kw:"공기청정기", score:41, wow:-5, spark:[32,23,23,25,22,21,23,22,26,22,18,22,19,22], sojae:["필터 교체 시기와 비용 비교"] }
+    ],
+    "여행:마이리얼트립": [
+      { kw:"후쿠오카", score:100, wow:-3, spark:[84,81,81,80,75,72,83,100,100,92,82,82,70,80], sojae:["후쿠오카 유후인 버스투어 비교","후쿠오카 2박 3일 경비 정리"],
+        deals:[{name:"라쿠투어 유후인·벳푸 버스투어",price:"52,900원~",rating:"4.9",url:"https://experiences.myrealtrip.com/products/3153599"},{name:"인디고트래블 버스투어",price:"59,000원~",rating:"5.0",url:"https://experiences.myrealtrip.com/products/3417851"}] },
+      { kw:"오사카", score:80, wow:4, spark:[60,60,60,58,56,51,62,73,73,70,67,62,54,65], sojae:["오사카 3박 4일 코스","유니버설 티켓 싸게 사는 법"],
+        deals:[{name:"일본 eSIM 무제한",price:"1,200원~",rating:"4.4",url:"https://experiences.myrealtrip.com/products/3456828"}] }
+    ]
+  }
+};
+</script>
+</body>
+</html>
