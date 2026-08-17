@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>냥이유 제휴링크 꿀팁저장소</title>
 <meta name="robots" content="noindex">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23dcef79'/%3E%3Ctext x='50' y='68' font-size='56' text-anchor='middle'%3E%F0%9F%98%BC%3C/text%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23a5d1f2'/%3E%3Ctext x='50' y='68' font-size='56' text-anchor='middle'%3E%F0%9F%98%BC%3C/text%3E%3C/svg%3E">
 <style>
   :root {
     --page:#f2f1ec; --card:#ffffff; --ink:#141414; --ink2:#5c5a54; --muted:#96938a;
@@ -199,15 +199,100 @@
     .mgrid > div > * { margin-left:12px; margin-right:12px; }
   }
 </style>
+<style id="theme-diary">
+  /* ═══ 스티커 다이어리 테마 (v4 승인판) — 토큰·스킨 오버라이드 ═══ */
+  :root {
+    --page:#eef4fa; --card:#ffffff; --ink:#101720; --ink2:#4c5a68; --muted:#8a98a6;
+    --lime:#a5d1f2; --blue:#d9eafa;
+    --sky:#a5d1f2; --sky-soft:#d9eafa; --sky-deep:#2f7fc4; --sky-ink:#1c4e7d; --hl:#ffe9a8;
+    --line:rgba(16,23,32,0.14); --up:#177a3e; --down:#cc4444;
+    --paper:0 3px 12px rgba(16,23,32,0.09);
+  }
+  body { background:var(--page);
+    background-image:radial-gradient(rgba(47,127,196,0.10) 1px, transparent 1px); background-size:14px 14px; }
+  .gate { background:var(--page);
+    background-image:radial-gradient(rgba(47,127,196,0.10) 1px, transparent 1px); background-size:14px 14px; }
+  .gate-card { background:#fff; border-radius:10px; box-shadow:var(--paper); padding:34px 24px 26px; position:relative; }
+  .gate-card::before { content:""; position:absolute; top:-10px; left:50%; transform:translateX(-50%);
+    width:110px; height:24px; background:rgba(165,209,242,0.8); border-radius:2px; }
+  .gate-card::after { content:"⭐"; position:absolute; bottom:-8px; left:-6px; font-size:20px; }
+  .gate-logo { font-size:11.5px; font-weight:700; color:var(--sky-ink); background:var(--sky-soft);
+    border-radius:999px; padding:5px 13px; display:inline-block; }
+  .gate-title { font-size:26px; line-height:1.45; }
+  .hlm { background:linear-gradient(transparent 55%, var(--hl) 55%); }
+  .gate-row input, .gate-input input { border:1.5px dashed var(--sky); border-radius:10px; }
+  .gate-row input:focus, .gate-input input:focus { border-style:solid; border-color:var(--sky-deep); }
+  .gate-row button, .gate-input button, .gbtn { border-radius:10px; }
+
+  header.site { background:rgba(238,244,250,0.93); border-bottom:1.5px dashed rgba(47,127,196,0.3); }
+  .fresh { border:none; border-radius:8px; box-shadow:var(--paper); }
+  .fresh b { color:var(--sky-deep); }
+  .track { background:#fff; box-shadow:inset 0 0 0 1.5px var(--sky-soft); }
+  .fill { background:repeating-linear-gradient(45deg, var(--sky) 0 8px, #8ec3ec 8px 16px); }
+  .ptbar .num b { color:var(--sky-deep); }
+  .pcnav button.on { background:var(--ink); color:#fff; }
+  nav.bottom { border-top:1.5px dashed rgba(47,127,196,0.3); }
+  nav.bottom button.on { color:var(--sky-deep); }
+
+  .hero { background:#fff; border-radius:10px; box-shadow:var(--paper); position:relative; }
+  .hero::before { content:""; position:absolute; top:-9px; left:24px; width:88px; height:22px;
+    background:rgba(165,209,242,0.8); border-radius:2px; }
+  .hero::after { content:"😼"; position:absolute; bottom:12px; right:14px; font-size:24px; }
+  .hero .tag { background:var(--sky-soft); color:var(--sky-ink); font-weight:700; }
+  .hero p { color:var(--ink2); }
+  .hero .cta { background:var(--ink); color:#fff; border-radius:10px; }
+  .hero .cta .arr { background:var(--sky-deep); }
+  .hero .score-float { background:var(--hl); border-radius:4px; box-shadow:var(--paper); }
+  .hero .score-float .n { color:var(--sky-deep); font-family:Georgia,serif; font-style:italic; }
+  .hero .score-float .l { color:#7a6a30; }
+
+  .chip { border:1.5px solid var(--sky-soft); }
+  .chip.on { background:var(--sky); border-color:var(--sky); color:var(--sky-ink); font-weight:700; }
+  .subtab.on { background:var(--sky); border-color:var(--sky); color:var(--sky-ink); }
+  .sec-label { color:var(--sky-deep); font-weight:700; }
+  .sec-label::before { content:"✦ "; }
+
+  .card, .rows, .profile, .lvpath, .guide, .modal-card { border-radius:10px; box-shadow:var(--paper); }
+  .mission { background:#fff; border-radius:10px; box-shadow:var(--paper); position:relative; }
+  .mission::after { content:"✉️"; position:absolute; top:12px; right:14px; font-size:22px; }
+  .mission p { color:var(--ink2); }
+  .num, .numl { color:var(--sky-deep); font-weight:800; }
+  .score .n, .row .r-score, .pstat .v { color:var(--sky-deep); font-family:Georgia,serif; font-style:italic; font-weight:900; }
+  .pill.hot { background:var(--hl); border-color:var(--hl); color:#7a5a10; }
+  .pill.up { background:#e7f3ea; border-color:#e7f3ea; }
+  .sojae { background:#fff; border:1.5px dashed var(--sky); border-radius:10px; }
+  .sojae ul { list-style:none; padding-left:2px; }
+  .sojae li::before { content:"✏️ "; font-size:10.5px; }
+  .btn { border-radius:10px; }
+  .btn.ghost { border:none; background:var(--sky-soft); color:var(--sky-ink); }
+  .deal { border-bottom:1.5px dashed var(--sky-soft); }
+  .row { border-bottom:1.5px dashed var(--sky-soft); }
+  .row.expanded { background:#f7fafd; }
+  .submitrow input { border:1.5px dashed var(--sky); border-radius:10px; }
+  .submitrow input:focus { border-style:solid; border-color:var(--sky-deep); }
+  .profile::before { content:""; position:absolute; top:-9px; right:26px; width:74px; height:20px;
+    background:rgba(255,233,168,0.9); border-radius:2px; }
+  .profile { position:relative; }
+  .avatar { box-shadow:0 0 0 3px #fff, 0 0 0 4.5px var(--sky-soft); }
+  .pedit { border:1.5px dashed var(--sky); color:var(--sky-ink); background:#fff; }
+  .pstat { border-radius:10px; }
+  .lv.cur { background:var(--hl); }
+  .field input, .field textarea { border-radius:10px; }
+  .av.sel { border-color:var(--sky-deep); background:var(--sky-soft); }
+  .csw.sel { border-color:var(--sky-deep); }
+  .card .head .kw + .pill, #feed-count { background:var(--page); }
+  .offline { background:#fff8e5; border:1.5px dashed #e5c95e; border-radius:10px; }
+  #toast { border-radius:10px; }
+</style>
 </head>
 <body>
 
 <!-- 1) 입장코드 게이트 -->
 <div class="gate" id="gate-code">
   <div class="gate-card">
-    <div class="gate-logo">meow_cps</div>
-    <div class="gate-title">냥이유 제휴링크<br>꿀팁저장소</div>
-    <p class="gate-sub">수강생 전용 · 오늘 팔리는 소재를 <em class="sf">매일 3번</em> 물어다 드립니다</p>
+    <div class="gate-logo">🐾 meow_cps · 수강생 전용</div>
+    <div class="gate-title">오늘, <span class="hlm">팔리는 소재</span>를<br>물어다드림.</div>
+    <p class="gate-sub">냥이유 제휴링크 꿀팁저장소 · <em class="sf">매일 3번</em> 갱신</p>
     <div class="gate-row">
       <input id="code-input" placeholder="입장코드" maxlength="12" autocomplete="off">
       <button id="code-btn">입장</button>
@@ -454,7 +539,7 @@ function linkBtns(it) {
   const q = encodeURIComponent(it.kw);
   return `<div class="linkrow"><a class="btn dark" href="https://search.shopping.naver.com/search/all?query=${q}" target="_blank" rel="noopener">상품 보기</a><button class="btn ghost" data-ckw="${esc(it.kw)}">커넥트에서 링크 만들기</button></div>`;
 }
-const sojaeHtml = it => it.sojae?.length ? `<div class="sojae"><div class="t">소재 추천</div><ul>${it.sojae.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : "";
+const sojaeHtml = it => it.sojae?.length ? `<div class="sojae"><div class="t">오늘의 글감 메모</div><ul>${it.sojae.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : "";
 
 function cardHtml(it, i) {
   return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${it.hot?'<span class="pill hot">급상승</span>':""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${sojaeHtml(it)}${linkBtns(it)}</div>`;
