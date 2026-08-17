@@ -325,6 +325,7 @@
           <p>오늘의 추천에서 소재를 골라 포스팅하고 URL을 제출하세요. 급상승 소재 보너스는 검수 후 지급돼요.</p>
           <div class="submitrow">
             <input id="murl" placeholder="블로그 포스팅 URL 붙여넣기" inputmode="url">
+            <input id="mkw" placeholder="키워드" maxlength="20" style="flex:none; width:96px">
             <button class="btn dark" id="msubmit" style="flex:none; padding:10px 20px">제출</button>
           </div>
         </div>
@@ -346,15 +347,12 @@
   <div class="view" id="v-feed">
     <div class="card" style="margin-top:10px">
       <div class="head">
-        <span class="kw">우리들의 포스팅</span>
-        <div class="feed-filter">
-          <button class="subtab on" id="ff-all">전체</button>
-          <button class="subtab" id="ff-mine">내 글</button>
-        </div>
+        <span class="kw">내 포스팅 모음</span>
+        <span class="pill" id="feed-count"></span>
       </div>
       <div style="margin-top:8px" id="feed"><div class="footer-note">불러오는 중…</div></div>
     </div>
-    <div class="footer-note">미션 탭에서 포스팅 URL을 제출하면 여기에 실시간으로 모여요 · 최근 50개</div>
+    <div class="footer-note">미션 탭에서 포스팅을 제출하면 여기에 번호순으로 쌓여요</div>
   </div>
 
   <!-- 결산 -->
@@ -623,7 +621,7 @@ function renderMe(d) {
 async function bootApp() {
   enterApp();
   await loadData(); renderHome();
-  const { doc, onSnapshot, collection, query, orderBy, limit } = fb.fsMod;
+  const { doc, onSnapshot, collection, query, orderBy, limit, where } = fb.fsMod;
   onSnapshot(doc(fb.db, "users", me.uid), s => { if (s.exists()) renderMe(s.data()); });
   onSnapshot(query(collection(fb.db, "users"), orderBy("points","desc"), limit(10)), qs => {
     const medals = ["🥇","🥈","🥉"];
@@ -632,21 +630,16 @@ async function bootApp() {
       return `<div class="deal"><span style="display:flex;align-items:center;gap:8px"><span>${medals[i]||String(i+1)}</span><span class="mini-av" style="background:${esc(u.avatarBg||"#cfe1f5")}">${esc(u.avatar||"😼")}</span>${esc(u.nickname||"수강생")}${mine?" (나)":""}</span><span class="m">${u.points||0}p${u.streak>=3?` · ${u.streak}일 연속`:""}</span></div>`;
     }).join("") || `<div class="footer-note">아직 아무도 없어요. 첫 제출의 주인공이 되어보세요!</div>`;
   });
-  // 글모음 피드 (실시간, 최근 50개)
-  let feedDocs = [], feedMineOnly = false;
-  const renderFeed = () => {
-    const rows = feedDocs.filter(s => !feedMineOnly || s.uid === me.uid);
-    $("feed").innerHTML = rows.map(s => {
-      const mine = s.uid === me.uid;
-      let host = ""; try { host = new URL(s.url).pathname.split("/").filter(Boolean).join("/"); } catch(e) {}
-      return `<div class="feed-item"><span class="mini-av" style="background:${esc(s.avatarBg||"#cfe1f5")}">${esc(s.avatar||"😼")}</span><div class="feed-body"><div class="feed-name">${esc(s.nickname||"수강생")}${mine?" (나)":""}<span class="d">${esc(s.date||"")}</span></div><a class="feed-url" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(host||s.url)}</a></div></div>`;
-    }).join("") || `<div class="footer-note">${feedMineOnly?"아직 제출한 글이 없어요":"아직 제출된 글이 없어요. 첫 글의 주인공이 되어보세요!"}</div>`;
-  };
-  onSnapshot(query(collection(fb.db, "subs"), orderBy("at","desc"), limit(50)), qs => {
-    feedDocs = qs.docs.map(d => d.data()); renderFeed();
+  // 내 포스팅 모음 (실시간, 제출 순번 표시)
+  onSnapshot(query(collection(fb.db, "subs"), where("uid", "==", me.uid)), qs => {
+    const rows = qs.docs.map(d => d.data())
+      .sort((a, b) => (a.at?.seconds||0) - (b.at?.seconds||0));   // 오래된 순 → 번호 매기기
+    $("feed-count").textContent = rows.length ? `총 ${rows.length}건` : "";
+    $("feed").innerHTML = rows.map((s, i) => {
+      let path = ""; try { path = new URL(s.url).pathname.split("/").filter(Boolean).join("/"); } catch(e) {}
+      return `<div class="feed-item"><span class="num" style="width:30px">${String(i+1).padStart(2,"0")}</span><div class="feed-body"><a class="feed-url" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(path||s.url)}</a></div><span class="pill">${esc(s.kw||"-")}</span><span class="feed-name"><span class="d">${esc(s.date||"")}</span></span></div>`;
+    }).reverse().join("") || `<div class="footer-note">아직 제출한 글이 없어요. 미션 탭에서 첫 글을 등록해보세요!</div>`;
   });
-  $("ff-all").addEventListener("click", () => { feedMineOnly = false; $("ff-all").classList.add("on"); $("ff-mine").classList.remove("on"); renderFeed(); });
-  $("ff-mine").addEventListener("click", () => { feedMineOnly = true; $("ff-mine").classList.add("on"); $("ff-all").classList.remove("on"); renderFeed(); });
   $("p-edit").addEventListener("click", () => showProfileModal(true));
   $("msubmit").addEventListener("click", submitMission);
   $("murl").addEventListener("keydown", e => { if (e.key==="Enter") submitMission(); });
@@ -655,12 +648,14 @@ async function bootApp() {
 const todayKst = () => new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10);
 async function submitMission() {
   const input = $("murl"), url = input.value.trim();
+  const kw = $("mkw").value.trim();
   if (!/^https?:\/\/(m\.)?blog\.naver\.com\//.test(url)) { toast("네이버 블로그 글 주소를 붙여넣어 주세요"); input.focus(); return; }
+  if (!kw) { toast("어떤 키워드로 썼는지 간단히 적어주세요"); $("mkw").focus(); return; }
   const btn = $("msubmit"); btn.disabled = true;
   const { doc, collection, addDoc, runTransaction, serverTimestamp } = fb.fsMod;
   try {
     const today = todayKst();
-    await addDoc(collection(fb.db, "subs"), { uid: me.uid, nickname: myDoc?.nickname||"", avatar: myDoc?.avatar||"😼", avatarBg: myDoc?.avatarBg||"#cfe1f5", url, date: today, at: serverTimestamp() });
+    await addDoc(collection(fb.db, "subs"), { uid: me.uid, nickname: myDoc?.nickname||"", avatar: myDoc?.avatar||"😼", avatarBg: myDoc?.avatarBg||"#cfe1f5", url, kw, date: today, at: serverTimestamp() });
     await runTransaction(fb.db, async tx => {
       const ref = doc(fb.db, "users", me.uid);
       const s = await tx.get(ref); const d = s.data();
@@ -668,7 +663,7 @@ async function submitMission() {
       const streak = d.lastSubmit === today ? d.streak : (d.lastSubmit === yesterday ? (d.streak||0)+1 : 1);
       tx.update(ref, { points: (d.points||0)+10, subs: (d.subs||0)+1, streak, lastSubmit: today });
     });
-    input.value = ""; toast("제출 완료! +10p 🎉");
+    input.value = ""; $("mkw").value = ""; toast("제출 완료! +10p 🎉");
   } catch(e) { toast("제출 실패. 네트워크를 확인해주세요"); }
   btn.disabled = false;
 }
