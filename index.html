@@ -516,9 +516,18 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">"
 async function loadData() {
   try {
     const r = await fetch("data.json", { cache:"no-store" });
-    if (r.ok) { DATA = await r.json(); return; }
+    if (r.ok) { DATA = await r.json(); }
   } catch(e) {}
-  DATA = SAMPLE; // 파이프라인 첫 배포 전 샘플
+  if (!DATA) DATA = SAMPLE; // 파이프라인 첫 배포 전 샘플
+  try {
+    const v = await fetch("volumes.json", { cache:"no-store" });
+    if (v.ok) {
+      const vols = (await v.json()).volumes || {};
+      Object.values(DATA.tabs || {}).forEach(items => items.forEach(it => {
+        if (it.vol == null && vols[it.kw] != null) it.vol = vols[it.kw];
+      }));
+    }
+  } catch(e) {}
 }
 
 function spark(vals, w=100, h=26, pad=3) {
