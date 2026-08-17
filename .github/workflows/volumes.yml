@@ -1,0 +1,75 @@
+name: update-volumes
+on:
+  schedule:
+    - cron: '30 23 * * *'
+    - cron: '30 4 * * *'
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  volumes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build volumes.json
+        env:
+          NAVER_API_KEY: ${{ secrets.NAVER_API_KEY }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          NAVER_CUSTOMER: ${{ secrets.NAVER_CUSTOMER }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, time, hmac, hashlib, base64, urllib.request, urllib.parse
+          API = os.environ['NAVER_API_KEY']
+          SEC = os.environ['NAVER_SECRET']
+          CUS = os.environ['NAVER_CUSTOMER']
+          def sign(ts):
+              msg = ts + '.GET./keywordstool'
+              return base64.b64encode(hmac.new(SEC.encode(), msg.encode(), hashlib.sha256).digest()).decode()
+          def cnt(v):
+              if isinstance(v, int): return v
+              try: return int(str(v).replace('<', '').strip())
+              except Exception: return 5
+          data = json.load(open('data.json'))
+          kws = []
+          for items in data.get('tabs', {}).values():
+              for it in items:
+                  k = it.get('kw')
+                  if k and k not in kws: kws.append(k)
+                  for s in (it.get('subkw') or []):
+                      sk = s.get('kw')
+                      if sk and sk not in kws: kws.append(sk)
+          out = {}
+          for i in range(0, len(kws), 5):
+              batch = kws[i:i+5]
+              hints = ','.join(k.replace(' ', '') for k in batch)
+              ts = str(round(time.time() * 1000))
+              q = urllib.parse.urlencode({'hintKeywords': hints, 'showDetail': '1'})
+              req = urllib.request.Request(
+                  'https://api.searchad.naver.com/keywordstool?' + q,
+                  headers={'X-Timestamp': ts, 'X-API-KEY': API,
+                           'X-Customer': CUS, 'X-Signature': sign(ts)})
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as r:
+                      res = json.load(r)
+              except Exception as e:
+                  print('batch fail', batch, e)
+                  time.sleep(1.0)
+                  continue
+              wanted = {k.replace(' ', '').upper(): k for k in batch}
+              for item in res.get('keywordList', []):
+                  rel = str(item.get('relKeyword', '')).replace(' ', '').upper()
+                  if rel in wanted:
+                      out[wanted[rel]] = cnt(item.get('monthlyPcQcCnt', 0)) + cnt(item.get('monthlyMobileQcCnt', 0))
+              time.sleep(0.4)
+          json.dump({'updated': time.strftime('%Y-%m-%d %H:%M UTC'), 'volumes': out},
+                    open('volumes.json', 'w'), ensure_ascii=False)
+          print('keywords', len(kws), 'resolved', len(out))
+          EOF
+      - name: commit
+        run: |
+          git config user.name 'volume-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add volumes.json
+          git diff --cached --quiet || git commit -m 'update volumes [bot]'
+          git push
