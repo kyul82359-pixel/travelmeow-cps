@@ -540,14 +540,15 @@ function linkBtns(it) {
   return `<div class="linkrow"><a class="btn dark" href="https://search.shopping.naver.com/search/all?query=${q}" target="_blank" rel="noopener">상품 보기</a><button class="btn ghost" data-ckw="${esc(it.kw)}">커넥트에서 링크 만들기</button></div>`;
 }
 const sojaeHtml = it => it.sojae?.length ? `<div class="sojae"><div class="t">오늘의 글감 메모</div><ul>${it.sojae.map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>` : "";
+const subkwHtml = it => it.subkw?.length ? `<div class="sojae"><div class="t">뜨는 세부 키워드</div><div class="meterrow" style="margin:6px 0 2px">${it.subkw.map(s=>`<span class="pill">${esc(s.kw)}${s.idx!=null?` <b>${Math.round(s.idx)}</b>`:""}</span>`).join("")}</div></div>` : "";
 
 const idxPill = it => it.idx != null ? `<span class="pill">검색지수 ${Math.round(it.idx)}</span>` : "";
 const volPill = it => it.vol != null ? `<span class="pill">월 검색 ${it.vol.toLocaleString()}회</span>` : "";
 function cardHtml(it, i) {
-  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${sojaeHtml(it)}${linkBtns(it)}</div>`;
+  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
 }
 function rowHtml(it, i) {
-  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${idxPill(it)}${volPill(it)}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
+  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${idxPill(it)}${volPill(it)}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
 }
 
 let curTab = "전체", curSub = "커넥트";
