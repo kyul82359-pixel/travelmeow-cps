@@ -46,6 +46,18 @@
   .avgrid { display:grid; grid-template-columns:repeat(8,1fr); gap:6px; }
   .av { font-size:20px; padding:6px 0; border-radius:10px; border:1.5px solid transparent; background:var(--page); cursor:pointer; text-align:center; line-height:1.3; }
   .av.sel { border-color:var(--ink); background:var(--lime); }
+  .cgrid { display:flex; gap:8px; flex-wrap:wrap; }
+  .csw { width:30px; height:30px; border-radius:50%; border:2px solid transparent; cursor:pointer; }
+  .csw.sel { border-color:var(--ink); }
+  .mini-av { width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:14px; flex:none; }
+  .feed-item { display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px dashed var(--line); }
+  .feed-item:last-child { border-bottom:0; }
+  .feed-body { flex:1; min-width:0; }
+  .feed-name { font-size:13px; font-weight:700; }
+  .feed-name .d { font-size:11px; color:var(--muted); font-weight:400; margin-left:6px; }
+  .feed-url { font-size:12px; color:var(--ink2); text-decoration:none; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .feed-url:hover { color:var(--ink); }
+  .feed-filter { display:flex; gap:6px; }
 
   /* 헤더 */
   header.site { position:sticky; top:0; z-index:30; background:rgba(242,241,236,0.94); backdrop-filter:blur(8px); }
@@ -236,6 +248,10 @@
       <div class="avgrid" id="avgrid"></div>
     </div>
     <div class="field">
+      <label>아바타 배경색</label>
+      <div class="cgrid" id="cgrid"></div>
+    </div>
+    <div class="field">
       <label for="pm-connect">쇼핑 커넥트 채널 번호 (선택)</label>
       <input id="pm-connect" placeholder="예: 798404202899584" inputmode="numeric">
       <div class="help">브랜드커넥트 접속 시 주소창에 보이는 숫자예요. 넣으면 추천 버튼이 내 커넥트의 해당 키워드 검색으로 바로 열려요.</div>
@@ -255,6 +271,7 @@
       <div class="pcnav">
         <button class="on" data-v="v-home">홈</button>
         <button data-v="v-mission">미션</button>
+        <button data-v="v-feed">글모음</button>
         <button data-v="v-report">결산</button>
         <button data-v="v-guide">가이드</button>
       </div>
@@ -325,6 +342,21 @@
     </div>
   </div>
 
+  <!-- 글모음 -->
+  <div class="view" id="v-feed">
+    <div class="card" style="margin-top:10px">
+      <div class="head">
+        <span class="kw">우리들의 포스팅</span>
+        <div class="feed-filter">
+          <button class="subtab on" id="ff-all">전체</button>
+          <button class="subtab" id="ff-mine">내 글</button>
+        </div>
+      </div>
+      <div style="margin-top:8px" id="feed"><div class="footer-note">불러오는 중…</div></div>
+    </div>
+    <div class="footer-note">미션 탭에서 포스팅 URL을 제출하면 여기에 실시간으로 모여요 · 최근 50개</div>
+  </div>
+
   <!-- 결산 -->
   <div class="view" id="v-report">
     <div class="placeholder">주간 결산은 매주 월요일 아침에 올라와요.<br>추천 적중률 · 최고 급상승 소재 · 이번 주 레벨업 명단</div>
@@ -362,6 +394,7 @@
   <nav class="bottom">
     <button class="on" data-v="v-home"><span class="ico">🏠</span>홈</button>
     <button data-v="v-mission"><span class="ico">🎯</span>미션</button>
+    <button data-v="v-feed"><span class="ico">📝</span>글모음</button>
     <button data-v="v-report"><span class="ico">📊</span>결산</button>
     <button data-v="v-guide"><span class="ico">📖</span>가이드</button>
   </nav>
@@ -534,15 +567,18 @@ function connectUrl(kw) {
             : "https://brandconnect.naver.com";
 }
 const AVATARS = ["😼","🐱","🐶","🐰","🦊","🐻","🐼","🐯","🦁","🐨","🐷","🐸","🐥","🦄","🐳","🦋","🌸","🍑","🍋","🍓","⚡","🔥","🌙","⭐"];
-let selAvatar = "😼";
+const AVBGS = ["#cfe1f5","#dcef79","#ffd9d9","#ffe3c2","#e4d9ff","#d4f0e0","#f5e6d0","#e9e9e4"];
+let selAvatar = "😼", selAvBg = AVBGS[0];
 function renderAvGrid() {
-  $("avgrid").innerHTML = AVATARS.map(a => `<button type="button" class="av${a===selAvatar?" sel":""}" data-a="${a}">${a}</button>`).join("");
+  $("avgrid").innerHTML = AVATARS.map(a => `<button type="button" class="av${a===selAvatar?" sel":""}" data-a="${a}"${a===selAvatar?` style="background:${selAvBg}"`:""}>${a}</button>`).join("");
   $("avgrid").querySelectorAll(".av").forEach(b => b.addEventListener("click", () => { selAvatar = b.dataset.a; renderAvGrid(); }));
+  $("cgrid").innerHTML = AVBGS.map(c => `<button type="button" class="csw${c===selAvBg?" sel":""}" data-c="${c}" style="background:${c}"></button>`).join("");
+  $("cgrid").querySelectorAll(".csw").forEach(b => b.addEventListener("click", () => { selAvBg = b.dataset.c; renderAvGrid(); }));
 }
 function showProfileModal(editing) {
   $("pm-title").textContent = editing ? "프로필 수정" : "프로필 만들기";
-  if (editing && myDoc) { $("pm-nick").value = myDoc.nickname||""; $("pm-bio").value = myDoc.bio||""; $("pm-connect").value = myDoc.connectId||""; selAvatar = myDoc.avatar || "😼"; }
-  else { if (me?.displayName) $("pm-nick").value = me.displayName.slice(0,12); selAvatar = "😼"; }
+  if (editing && myDoc) { $("pm-nick").value = myDoc.nickname||""; $("pm-bio").value = myDoc.bio||""; $("pm-connect").value = myDoc.connectId||""; selAvatar = myDoc.avatar || "😼"; selAvBg = myDoc.avatarBg || AVBGS[0]; }
+  else { if (me?.displayName) $("pm-nick").value = me.displayName.slice(0,12); selAvatar = "😼"; selAvBg = AVBGS[0]; }
   renderAvGrid();
   $("profile-modal").classList.remove("hidden");
   $("pm-save").onclick = async () => {
@@ -551,7 +587,7 @@ function showProfileModal(editing) {
     const { doc, setDoc, serverTimestamp } = fb.fsMod;
     try {
       await setDoc(doc(fb.db, "users", me.uid), {
-        nickname: nick, bio, avatar: selAvatar,
+        nickname: nick, bio, avatar: selAvatar, avatarBg: selAvBg,
         connectId: $("pm-connect").value.trim().replace(/\D/g, ""),
         points: myDoc?.points ?? 0, subs: myDoc?.subs ?? 0,
         streak: myDoc?.streak ?? 0, lastSubmit: myDoc?.lastSubmit ?? "",
@@ -576,6 +612,7 @@ function renderMe(d) {
   $("ptnum").innerHTML = next ? `<b>${pts}</b>p / ${next.at}p · ${next.n}까지 <b>${next.at-pts}</b>p` : `<b>${pts}</b>p · 최고 레벨`;
   $("p-name").textContent = d.nickname; $("p-bio").textContent = d.bio||"";
   $("avatar").textContent = d.avatar || "😼";
+  $("avatar").style.background = d.avatarBg || "#cfe1f5";
   $("s-pts").textContent = pts + "p"; $("s-subs").textContent = d.subs||0;
   $("s-streak").textContent = (d.streak||0) + "일";
   if (d.joined?.toDate) { const j = d.joined.toDate(); $("s-joined").textContent = `${j.getMonth()+1}.${String(j.getDate()).padStart(2,"0")}`; }
@@ -592,9 +629,24 @@ async function bootApp() {
     const medals = ["🥇","🥈","🥉"];
     $("leaderboard").innerHTML = qs.docs.map((d,i) => {
       const u = d.data(), mine = d.id === me.uid;
-      return `<div class="deal"><span>${medals[i]||String(i+1)} ${esc(u.nickname||"수강생")}${mine?" (나)":""}</span><span class="m">${u.points||0}p${u.streak>=3?` · ${u.streak}일 연속`:""}</span></div>`;
+      return `<div class="deal"><span style="display:flex;align-items:center;gap:8px"><span>${medals[i]||String(i+1)}</span><span class="mini-av" style="background:${esc(u.avatarBg||"#cfe1f5")}">${esc(u.avatar||"😼")}</span>${esc(u.nickname||"수강생")}${mine?" (나)":""}</span><span class="m">${u.points||0}p${u.streak>=3?` · ${u.streak}일 연속`:""}</span></div>`;
     }).join("") || `<div class="footer-note">아직 아무도 없어요. 첫 제출의 주인공이 되어보세요!</div>`;
   });
+  // 글모음 피드 (실시간, 최근 50개)
+  let feedDocs = [], feedMineOnly = false;
+  const renderFeed = () => {
+    const rows = feedDocs.filter(s => !feedMineOnly || s.uid === me.uid);
+    $("feed").innerHTML = rows.map(s => {
+      const mine = s.uid === me.uid;
+      let host = ""; try { host = new URL(s.url).pathname.split("/").filter(Boolean).join("/"); } catch(e) {}
+      return `<div class="feed-item"><span class="mini-av" style="background:${esc(s.avatarBg||"#cfe1f5")}">${esc(s.avatar||"😼")}</span><div class="feed-body"><div class="feed-name">${esc(s.nickname||"수강생")}${mine?" (나)":""}<span class="d">${esc(s.date||"")}</span></div><a class="feed-url" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(host||s.url)}</a></div></div>`;
+    }).join("") || `<div class="footer-note">${feedMineOnly?"아직 제출한 글이 없어요":"아직 제출된 글이 없어요. 첫 글의 주인공이 되어보세요!"}</div>`;
+  };
+  onSnapshot(query(collection(fb.db, "subs"), orderBy("at","desc"), limit(50)), qs => {
+    feedDocs = qs.docs.map(d => d.data()); renderFeed();
+  });
+  $("ff-all").addEventListener("click", () => { feedMineOnly = false; $("ff-all").classList.add("on"); $("ff-mine").classList.remove("on"); renderFeed(); });
+  $("ff-mine").addEventListener("click", () => { feedMineOnly = true; $("ff-mine").classList.add("on"); $("ff-all").classList.remove("on"); renderFeed(); });
   $("p-edit").addEventListener("click", () => showProfileModal(true));
   $("msubmit").addEventListener("click", submitMission);
   $("murl").addEventListener("keydown", e => { if (e.key==="Enter") submitMission(); });
@@ -608,7 +660,7 @@ async function submitMission() {
   const { doc, collection, addDoc, runTransaction, serverTimestamp } = fb.fsMod;
   try {
     const today = todayKst();
-    await addDoc(collection(fb.db, "subs"), { uid: me.uid, nickname: myDoc?.nickname||"", url, date: today, at: serverTimestamp() });
+    await addDoc(collection(fb.db, "subs"), { uid: me.uid, nickname: myDoc?.nickname||"", avatar: myDoc?.avatar||"😼", avatarBg: myDoc?.avatarBg||"#cfe1f5", url, date: today, at: serverTimestamp() });
     await runTransaction(fb.db, async tx => {
       const ref = doc(fb.db, "users", me.uid);
       const s = await tx.get(ref); const d = s.data();
