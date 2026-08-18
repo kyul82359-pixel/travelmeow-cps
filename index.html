@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>냥이유 제휴링크 꿀팁저장소</title>
 <meta name="robots" content="noindex">
+<meta property="og:type" content="website">
+<meta property="og:title" content="냥이유 제휴링크 꿀팁저장소">
+<meta property="og:description" content="매일 3회 자동 갱신 · 오늘 뜨는 제휴 키워드와 검색량·경쟁도·판매 상품까지 한눈에">
+<meta property="og:image" content="https://kyul82359-pixel.github.io/travelmeow-cps/og.png">
+<meta property="og:url" content="https://kyul82359-pixel.github.io/travelmeow-cps/">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23a5d1f2'/%3E%3Ctext x='50' y='68' font-size='56' text-anchor='middle'%3E%F0%9F%98%BC%3C/text%3E%3C/svg%3E">
 <style>
   :root {
@@ -133,6 +139,23 @@
   .row .r-mini { font-size:10.5px; color:#6b7f92; text-align:right; line-height:1.5; white-space:nowrap; flex:none; }
   .row .r-mini b { color:#3d5a75; font-weight:700; }
   @media (max-width:520px) { .row .r-wow { display:none; } }
+  .pill.honey { background:#fff3cf; color:#8a6410; border:1px solid #f0d98a; font-weight:700; }
+  .rankb { font-size:10px; font-weight:800; padding:1.5px 6px; border-radius:8px; margin-left:5px; vertical-align:1px; }
+  .rankb.up { background:#e3f4e3; color:#1c7a1c; } .rankb.down { background:#fbe7e7; color:#c93a3a; }
+  .rankb.new { background:#fff3cf; color:#8a6410; }
+  .honeyzone { margin:14px 16px 4px; }
+  .honeyzone .hz-t { font-size:12px; font-weight:800; color:#8a6410; margin-bottom:8px; letter-spacing:0.02em; }
+  .hz-cards { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+  .hz-card { flex:1; min-width:132px; background:linear-gradient(160deg,#fffbef,#fff3cf); border:1.5px solid #f0d98a; border-radius:12px; padding:10px 12px; cursor:pointer; }
+  .hz-card .k { font-size:13.5px; font-weight:800; }
+  .hz-card .m { font-size:10.5px; color:#8a6410; margin-top:4px; line-height:1.6; }
+  .countdown { font-size:11px; color:var(--muted); }
+  .countdown b { color:#2f7fc4; }
+  .skel { padding:4px 16px; }
+  .skel .sk-row { height:44px; border-radius:10px; margin-bottom:8px;
+    background:linear-gradient(90deg,#e9eef4 25%,#f5f8fb 45%,#e9eef4 65%); background-size:200% 100%;
+    animation:shimmer 1.2s infinite linear; }
+  @keyframes shimmer { from { background-position:200% 0; } to { background-position:-200% 0; } }
   .r-wow.up { color:var(--up); } .r-wow.down { color:var(--down); }
   .row .open { display:none; padding:0 16px 14px; }
   .row.expanded { background:#fbfaf6; }
@@ -380,13 +403,14 @@
   <!-- 홈 -->
   <div class="view show" id="v-home">
     <div class="hero" id="hero"></div>
+    <div class="honeyzone hidden" id="honeyzone"></div>
     <div class="chips" id="chips"></div>
     <div class="subtabs hidden" id="subtabs">
       <button class="subtab on" data-s="커넥트">쇼핑 커넥트</button>
       <button class="subtab" data-s="마이리얼트립">마이리얼트립</button>
     </div>
     <div class="sec-label" id="tab-label"></div>
-    <div id="tab-content"></div>
+    <div id="tab-content"><div class="skel"><div class="sk-row"></div><div class="sk-row"></div><div class="sk-row"></div><div class="sk-row"></div><div class="sk-row"></div></div></div>
     <div class="footer-note">기회 점수 = 분야 내 수요 × 전주 대비 성장 × 블로그 경쟁 여유<br>검색·클릭 기준 상대지수이며 실제 거래액이 아닙니다 · 출처: 네이버 데이터랩 Open API, 마이리얼트립</div>
   </div>
 
@@ -561,12 +585,24 @@ const miniHtml = it => {
   if (v == null && b == null) return "";
   return `<span class="r-mini">${v!=null?`월 <b>${v}</b>`:""}${v!=null&&b!=null?"<br>":""}${b!=null?`발행 <b>${b}</b>`:""}</span>`;
 };
+const rankBadge = it => it.new ? `<span class="rankb new">NEW</span>` : (it.rankd > 0 ? `<span class="rankb up">▲${it.rankd}</span>` : it.rankd < 0 ? `<span class="rankb down">▼${-it.rankd}</span>` : "");
+const isHoney = it => it.vol != null && it.blog != null && it.vol >= 20000 && it.blog < 150000;
+const honeyPill = it => isHoney(it) ? `<span class="pill honey">🍯 꿀키워드</span>` : "";
+function animateNum(el, target, ms=800) {
+  const t0 = performance.now();
+  const tick = now => {
+    const p = Math.min(1, (now-t0)/ms), e = 1-Math.pow(1-p,3);
+    el.textContent = Math.round(target*e);
+    if (p < 1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
 const volPill = it => it.vol != null ? `<span class="pill">월 검색 ${it.vol.toLocaleString()}회</span>` : "";
 function cardHtml(it, i) {
-  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
+  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}${rankBadge(it)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${honeyPill(it)}${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">발행 ${fmtN(it.blog)}</span>`:""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
 }
 function rowHtml(it, i) {
-  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${idxPill(it)}${volPill(it)}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
+  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">발행 ${fmtN(it.blog)}건</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
 }
 
 let curTab = "전체", curSub = "커넥트";
@@ -582,10 +618,56 @@ function renderTab() {
   box.querySelectorAll("[data-x]").forEach(b => b.addEventListener("click", () => b.parentNode.classList.toggle("expanded")));
   box.querySelectorAll("[data-ckw]").forEach(b => b.addEventListener("click", () => window.open(connectUrl(b.dataset.ckw), "_blank", "noopener")));
 }
+function nextRoundInfo() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60000);
+  const hours = [8, 13, 20];
+  let target = null, label = "";
+  for (const h of hours) {
+    const t = new Date(kst); t.setHours(h, 0, 0, 0);
+    if (t > kst) { target = t; label = String(h).padStart(2,"0") + ":00"; break; }
+  }
+  if (!target) { target = new Date(kst); target.setDate(target.getDate()+1); target.setHours(8,0,0,0); label = "내일 08:00"; }
+  const mins = Math.max(0, Math.round((target - kst) / 60000));
+  const hh = Math.floor(mins/60), mm = mins%60;
+  return { label, txt: hh > 0 ? `${hh}시간 ${mm}분 후` : `${mm}분 후` };
+}
+function renderCountdown() {
+  const el = $("cd"); if (!el) return;
+  const n = nextRoundInfo();
+  el.innerHTML = `다음 리포트 <b>${n.label}</b> · ${n.txt}`;
+}
+function renderHoney() {
+  const box = $("honeyzone"); if (!box || !DATA.tabs) return;
+  const seen = new Set(), pool = [];
+  Object.entries(DATA.tabs).forEach(([tab, items]) => items.forEach(it => {
+    if (!isHoney(it) || seen.has(it.kw)) return;
+    seen.add(it.kw); pool.push({ ...it, _tab: tab });
+  }));
+  pool.sort((a,b) => (b.vol/b.blog)*b.score - (a.vol/a.blog)*a.score);
+  const top = pool.slice(0,3);
+  if (!top.length) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  box.innerHTML = `<div class="hz-t">🍯 오늘의 꿀키워드 — 검색은 많고 쓴 사람은 적어요</div><div class="hz-cards">${top.map(it =>
+    `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>발행 <b>${fmtN(it.blog)}</b> · 경쟁 ${compTxt(it.blog)}</div></div>`).join("")}</div>`;
+  box.querySelectorAll("[data-hz]").forEach(c => c.addEventListener("click", () => {
+    const t = c.dataset.hz.split(":")[0];
+    if (CATS.includes(t)) {
+      curTab = t;
+      if (c.dataset.hz.includes(":")) curSub = c.dataset.hz.split(":")[1] === "마이리얼트립" ? "마이리얼트립" : "커넥트";
+      $("chips").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on", x.dataset.c===t));
+      renderTab();
+      $("tab-label").scrollIntoView({behavior:"smooth"});
+    }
+  }));
+}
 function renderHome() {
-  $("fresh").innerHTML = `${esc(DATA.updated||"")} <b>${esc(DATA.round||"")}</b>`;
+  $("fresh").innerHTML = `${esc(DATA.updated||"")} <b>${esc(DATA.round||"")}</b><br><span class="countdown" id="cd"></span>`;
+  renderCountdown(); setInterval(renderCountdown, 30000);
   const h = DATA.hero || {};
-  $("hero").innerHTML = `<span class="tag">오늘의 1픽</span><h1>${esc(h.title||h.kw||"")}</h1><p>${esc(h.reason||"")}</p><div class="score-float"><div class="n">${Math.round(h.score||100)}</div><div class="l">기회 점수</div></div>`;
+  $("hero").innerHTML = `<span class="tag">오늘의 1픽</span><h1>${esc(h.title||h.kw||"")}</h1><p>${esc(h.reason||"")}</p><div class="score-float"><div class="n">0</div><div class="l">기회 점수</div></div>`;
+  animateNum($("hero").querySelector(".score-float .n"), Math.round(h.score||100));
+  renderHoney();
   $("chips").innerHTML = CATS.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
   $("chips").querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
     curTab = c.dataset.c; location.hash = encodeURIComponent(curTab);
