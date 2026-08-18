@@ -565,7 +565,8 @@ function spark(vals, w=100, h=26, pad=3) {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts.join(" ")}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="#2a78d6"/></svg>`;
 }
 const wowHtml = v => v==null ? "" : (v>0.5 ? `<span class="r-wow up">▲ +${Math.round(v)}%</span>` : v<-0.5 ? `<span class="r-wow down">▼ ${Math.round(v)}%</span>` : `<span class="r-wow">- 0%</span>`);
-const compTxt = b => b==null ? "미측정" : b<300000 ? "낮음" : b<700000 ? "보통" : "높음";
+const blogTh = () => (DATA && DATA.blogTh) || [300000, 700000];
+const compTxt = b => b==null ? "미측정" : b<blogTh()[0] ? "낮음" : b<blogTh()[1] ? "보통" : "높음";
 
 function linkBtns(it) {
   if (it.deals) {
@@ -583,10 +584,10 @@ const fmtN = n => n == null ? null : n >= 10000 ? (n/10000 >= 100 ? Math.round(n
 const miniHtml = it => {
   const v = fmtN(it.vol), b = fmtN(it.blog);
   if (v == null && b == null) return "";
-  return `<span class="r-mini">${v!=null?`월 <b>${v}</b>`:""}${v!=null&&b!=null?"<br>":""}${b!=null?`발행 <b>${b}</b>`:""}</span>`;
+  return `<span class="r-mini">${v!=null?`월 <b>${v}</b>`:""}${v!=null&&b!=null?"<br>":""}${b!=null?`월 발행 <b>${b}</b>`:""}</span>`;
 };
 const rankBadge = it => it.new ? `<span class="rankb new">NEW</span>` : (it.rankd > 0 ? `<span class="rankb up">▲${it.rankd}</span>` : it.rankd < 0 ? `<span class="rankb down">▼${-it.rankd}</span>` : "");
-const isHoney = it => it.vol != null && it.blog != null && it.vol >= 20000 && it.blog < 150000;
+const isHoney = it => it.vol != null && it.blog != null && it.vol >= 20000 && it.blog < blogTh()[0];
 const honeyPill = it => isHoney(it) ? `<span class="pill honey">🍯 꿀키워드</span>` : "";
 function animateNum(el, target, ms=800) {
   const t0 = performance.now();
@@ -599,10 +600,10 @@ function animateNum(el, target, ms=800) {
 }
 const volPill = it => it.vol != null ? `<span class="pill">월 검색 ${it.vol.toLocaleString()}회</span>` : "";
 function cardHtml(it, i) {
-  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}${rankBadge(it)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${honeyPill(it)}${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">발행 ${fmtN(it.blog)}</span>`:""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
+  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}${rankBadge(it)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${honeyPill(it)}${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">월 발행 ${fmtN(it.blog)}</span>`:""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
 }
 function rowHtml(it, i) {
-  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">발행 ${fmtN(it.blog)}건</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
+  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">월 발행 ${fmtN(it.blog)}건</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
 }
 
 let curTab = "전체", curSub = "커넥트";
@@ -649,7 +650,7 @@ function renderHoney() {
   if (!top.length) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
   box.innerHTML = `<div class="hz-t">🍯 오늘의 꿀키워드 — 검색은 많고 쓴 사람은 적어요</div><div class="hz-cards">${top.map(it =>
-    `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>발행 <b>${fmtN(it.blog)}</b> · 경쟁 ${compTxt(it.blog)}</div></div>`).join("")}</div>`;
+    `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>월 발행 <b>${fmtN(it.blog)}</b> · 경쟁 ${compTxt(it.blog)}</div></div>`).join("")}</div>`;
   box.querySelectorAll("[data-hz]").forEach(c => c.addEventListener("click", () => {
     const t = c.dataset.hz.split(":")[0];
     if (CATS.includes(t)) {
