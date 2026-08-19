@@ -1,0 +1,91 @@
+name: harvest-keywords
+on:
+  schedule:
+    - cron: '0 20 * * 0'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: harvest related keywords
+        env:
+          NAVER_API_KEY: ${{ secrets.NAVER_API_KEY }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          NAVER_CUSTOMER: ${{ secrets.NAVER_CUSTOMER }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, re, time, hmac, hashlib, base64, urllib.request, urllib.parse
+          API = os.environ['NAVER_API_KEY']
+          SEC = os.environ['NAVER_SECRET']
+          CUS = os.environ['NAVER_CUSTOMER']
+          MIN_VOL = 300
+          CAP = 400
+
+          def sign(ts):
+              msg = ts + '.GET./keywordstool'
+              return base64.b64encode(hmac.new(SEC.encode(), msg.encode(), hashlib.sha256).digest()).decode()
+
+          def cnt(v):
+              if isinstance(v, int): return v
+              try: return int(str(v).replace('<', '').strip())
+              except Exception: return 5
+
+          def fetch(seeds):
+              hints = ','.join(s.replace(' ', '') for s in seeds)
+              ts = str(round(time.time() * 1000))
+              q = urllib.parse.urlencode({'hintKeywords': hints, 'showDetail': '1'})
+              req = urllib.request.Request(
+                  'https://api.searchad.naver.com/keywordstool?' + q,
+                  headers={'X-Timestamp': ts, 'X-API-KEY': API,
+                           'X-Customer': CUS, 'X-Signature': sign(ts)})
+              with urllib.request.urlopen(req, timeout=25) as r:
+                  return json.load(r).get('keywordList', [])
+
+          BAD = re.compile(r'(무료|다운|토렌트|성인|중고나라|당근|알바|자격증|주가|채용)')
+          def ok(kw):
+              if len(kw) < 2 or len(kw) > 25: return False
+              if BAD.search(kw): return False
+              if not re.search(r'[가-힣]', kw): return False
+              return True
+
+          seedmap = json.load(open('seeds.json'))
+          pool, seen, errors = {}, set(), []
+          for cat, info in seedmap.items():
+              rows = {}
+              seeds = info['seeds']
+              for i in range(0, len(seeds), 5):
+                  batch = seeds[i:i+5]
+                  try:
+                      items = fetch(batch)
+                  except Exception as e:
+                      errors.append('%s %s: %s' % (cat, batch, e))
+                      time.sleep(1.5)
+                      continue
+                  for it in items:
+                      kw = str(it.get('relKeyword', '')).strip()
+                      if not ok(kw) or kw in seen or kw in rows: continue
+                      vol = cnt(it.get('monthlyPcQcCnt', 0)) + cnt(it.get('monthlyMobileQcCnt', 0))
+                      if vol < MIN_VOL: continue
+                      rows[kw] = {'kw': kw, 'vol': vol, 'comp': str(it.get('compIdx', ''))}
+                  time.sleep(0.45)
+              top = sorted(rows.values(), key=lambda x: -x['vol'])[:CAP]
+              for r in top: seen.add(r['kw'])
+              pool[cat] = top
+              print(cat, len(rows), '->', len(top))
+
+          out = {'updated': time.strftime('%Y-%m-%d %H:%M UTC'),
+                 'min_vol': MIN_VOL, 'errors': errors, 'categories': pool}
+          json.dump(out, open('keywords_pool.json', 'w'), ensure_ascii=False)
+          print('total', sum(len(v) for v in pool.values()), 'errors', len(errors))
+          EOF
+      - name: commit
+        run: |
+          git config user.name 'harvest-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add keywords_pool.json
+          git diff --cached --quiet || git commit -m 'harvest keywords pool [bot]'
+          git pull --rebase --autostash || true
+          git push
