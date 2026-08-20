@@ -21,11 +21,13 @@ v7 일일 로테이션 — data.json 자동 생성 (세션 없이 GitHub Actions
         → 데이터랩 검색어트렌드(성장률·스파크라인·검색지수) + 블로그 월간 발행량 추가
 """
 import json, os, re, sys, time, math, random
+from concurrent.futures import ThreadPoolExecutor
 import datetime as dt
 import urllib.request, urllib.parse
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from commercial_filter import is_commercial  # noqa
+import blog_volume  # noqa
 
 # ── 인증 백엔드 ────────────────────────────────
 # 네이버 검색/데이터랭 API는 NAVER API HUB(네이버 클라우드 플랫폼)로 이관됨.
@@ -54,6 +56,7 @@ else:
 
 RICH = BACKEND is not None
 MAX_FAILS = 12          # 연속 실패가 이만큼 쌓이면 보강을 포기한다
+WORKERS = 6             # 동시 API 호출 수 (HUB 한도 50 RPS 내)
 
 KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime.now(KST)
@@ -65,7 +68,9 @@ TABS = ["생활/건강", "디지털/가전", "식품", "가구/인테리어", "�
 PER_TAB = 20          # 탭당 노출 개수
 CANDIDATES = 35       # 보강 API를 태울 후보 수 (탭당)
 EXCLUDE_ROUNDS = 3    # 최근 N회차에 나온 키워드는 제외
-BLOG_TH = [3333, 10000]   # 월간 발행량 기준 낮음/보통/높음
+BLOG_TH = [1000, 5000]    # 월간 발행량 기준: 낮음 <1,000 / 보통 <5,000 / 높음
+                          # (2026-08-20 실측 재보정: 에이블트라이크 760, 홍콩여행 4,350,
+                          #  팔찌 9,000, 꽃다발 12,900, 호텔 30,000+)
 
 ROUND_SLOTS = [(8, "아침 회차 ①"), (13, "점심 회차 ②"), (20, "저녁 회차 ③")]
 
@@ -140,24 +145,86 @@ def datalab_batch(keywords):
 _DATE = re.compile(r"(\d{4})(\d{2})(\d{2})")
 
 
-def blog_monthly(kw):
-    """최근 100건이 쌓이는 데 걸린 기간으로 월간 발행량을 추정."""
-    res = _open_api(BLOG_PATH, query={"query": kw, "display": 100, "sort": "date"})
+def _blog_page(kw, start):
+    """블로그 검색 한 페이지 → (postdate 문자열 리스트, 건수)"""
+    res = _open_api(BLOG_PATH, query={"query": kw, "display": blog_volume.PAGE,
+                                      "sort": "date", "start": start})
     items = res.get("items", [])
-    total = int(res.get("total", 0) or 0)
-    if not items:
-        return 0
     dates = []
     for it in items:
         m = _DATE.search(it.get("postdate", "") or "")
         if m:
-            dates.append(dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
-    if not dates:
-        return None
-    span = max(1, (NOW.date() - min(dates)).days + 1)
-    est = len(dates) / span * 30.0
-    # 누적 총량보다 클 수는 없다
-    return int(min(est, total))
+            dates.append(m.group(0))
+    return dates, len(items)
+
+
+def blog_monthly(kw):
+    """완전한 하루들의 실제 건수로 월간 발행량 산출. → (값, 포화여부)"""
+    return blog_volume.measure(_blog_page, kw)
+
+
+# ══════════════════════════════════════════════════════════════
+# 검색광고 API — 선정된 키워드의 검색량을 실행 시점 기준으로 재조회
+# (keywords_pool.json 은 주 1회 갱신이라 최대 7일 묵은 값이다)
+# ══════════════════════════════════════════════════════════════
+import hmac, hashlib, base64  # noqa: E402
+
+AD_KEY = os.environ.get("NAVER_API_KEY", "").strip()
+AD_SEC = os.environ.get("NAVER_SECRET", "").strip()
+AD_CUS = os.environ.get("NAVER_CUSTOMER", "").strip()
+AD_OK = bool(AD_KEY and AD_SEC and AD_CUS)
+
+
+def _ad_num(v, default=0):
+    if isinstance(v, (int, float)):
+        return int(v)
+    try:
+        return int(str(v).replace("<", "").replace(",", "").strip())
+    except Exception:
+        return default
+
+
+def searchad_volumes(keywords):
+    """[kw] → {kw: 월 검색량}. 5개씩 배치 조회."""
+    out = {}
+    if not AD_OK:
+        return out
+
+    def one(batch):
+        hints = ",".join(k.replace(" ", "") for k in batch)
+        ts = str(round(time.time() * 1000))
+        sig = base64.b64encode(hmac.new(
+            AD_SEC.encode(), (ts + ".GET./keywordstool").encode(),
+            hashlib.sha256).digest()).decode()
+        q = urllib.parse.urlencode({"hintKeywords": hints, "showDetail": "1"})
+        req = urllib.request.Request(
+            "https://api.searchad.naver.com/keywordstool?" + q,
+            headers={"X-Timestamp": ts, "X-API-KEY": AD_KEY,
+                     "X-Customer": AD_CUS, "X-Signature": sig})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            res = json.load(r)
+        wanted = {k.replace(" ", "").upper(): k for k in batch}
+        got = {}
+        for item in res.get("keywordList", []):
+            rel = str(item.get("relKeyword", "")).replace(" ", "").upper()
+            if rel in wanted:
+                got[wanted[rel]] = (_ad_num(item.get("monthlyPcQcCnt"))
+                                    + _ad_num(item.get("monthlyMobileQcCnt")))
+        return got
+
+    batches = [keywords[i:i + 5] for i in range(0, len(keywords), 5)]
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        for got in ex.map(lambda b: _safe(one, b, {}), batches):
+            out.update(got)
+    return out
+
+
+def _safe(fn, arg, default):
+    try:
+        return fn(arg)
+    except Exception as e:
+        print("  ! %s(%s) %s" % (getattr(fn, "__name__", "fn"), arg, e))
+        return default
 
 
 # ══════════════════════════════════════════════════════════════
@@ -334,36 +401,65 @@ def main():
                     allkw.append(r["kw"])
         print("보강 대상 키워드 %d (backend=%s)" % (len(allkw), BACKEND))
 
-        trend, blogs = {}, {}
-        fails = 0
-        for i in range(0, len(allkw), 5):
-            if fails >= MAX_FAILS:
-                print("!! 검색어트렌드 연속 실패 %d회 — 보강 중단" % fails)
-                break
-            try:
-                trend.update(datalab_batch(allkw[i:i + 5]))
-                fails = 0
-            except Exception as e:
-                fails += 1
-                if fails <= 3:
-                    print("datalab fail", allkw[i:i + 5], e)
-            time.sleep(0.15)
-        print("datalab ok", len(trend))
+        trend, blogs, saturated = {}, {}, set()
+        t0 = time.time()
 
-        fails = 0
-        for k in allkw:
-            if fails >= MAX_FAILS:
-                print("!! 블로그 검색 연속 실패 %d회 — 보강 중단" % fails)
-                break
+        # ── 검색어트렌드 (5개씩 배치, 병렬) ─────────────────────
+        batches = [allkw[i:i + 5] for i in range(0, len(allkw), 5)]
+        fails = [0]
+
+        def do_trend(b):
+            if fails[0] >= MAX_FAILS:
+                return {}
             try:
-                blogs[k] = blog_monthly(k)
-                fails = 0
+                r = datalab_batch(b)
+                fails[0] = 0
+                return r
             except Exception as e:
-                fails += 1
-                if fails <= 3:
+                fails[0] += 1
+                if fails[0] <= 3:
+                    print("datalab fail", b, e)
+                return {}
+
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            for r in ex.map(do_trend, batches):
+                trend.update(r)
+        if fails[0] >= MAX_FAILS:
+            print("!! 검색어트렌드 연속 실패 — 일부 중단")
+        print("datalab ok %d/%d (%.0fs)" % (len(trend), len(allkw), time.time() - t0))
+
+        # ── 블로그 월간 발행량 (키워드당 1~10페이지, 병렬) ───────
+        t1 = time.time()
+        bfails = [0]
+
+        def do_blog(k):
+            if bfails[0] >= MAX_FAILS:
+                return k, None, False
+            try:
+                v, sat = blog_monthly(k)
+                bfails[0] = 0
+                return k, v, sat
+            except Exception as e:
+                bfails[0] += 1
+                if bfails[0] <= 3:
                     print("blog fail", k, e)
-            time.sleep(0.12)
-        print("blog ok", len(blogs))
+                return k, None, False
+
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            for k, v, sat in ex.map(do_blog, allkw):
+                if v is not None:
+                    blogs[k] = v
+                    if sat:
+                        saturated.add(k)
+        if bfails[0] >= MAX_FAILS:
+            print("!! 블로그 검색 연속 실패 — 일부 중단")
+        print("blog ok %d/%d · 포화(측정한계) %d개 (%.0fs)"
+              % (len(blogs), len(allkw), len(saturated), time.time() - t1))
+
+        # ── 검색량 최신화 (풀은 주 1회라 최대 7일 묵음) ──────────
+        t2 = time.time()
+        fresh = searchad_volumes(allkw)
+        print("검색량 갱신 %d/%d (%.0fs)" % (len(fresh), len(allkw), time.time() - t2))
 
         for cat in TABS:
             for r in cand.get(cat, []):
@@ -374,6 +470,10 @@ def main():
                     r["idx"] = t["idx"]
                 if blogs.get(r["kw"]) is not None:
                     r["blog"] = blogs[r["kw"]]
+                    if r["kw"] in saturated:
+                        r["blogMin"] = True      # "이상"임을 사이트에 알림
+                if fresh.get(r["kw"]):
+                    r["vol"] = fresh[r["kw"]]
 
         # 실제로 아무것도 못 받아왔으면 rich=False 로 정직하게 표시
         if not trend and not blogs:
@@ -402,7 +502,7 @@ def main():
                 "vol": r.get("vol"),
                 "sojae": sojae_for(r["kw"], cat, i, round_no),
             }
-            for f in ("wow", "idx", "blog", "spark"):
+            for f in ("wow", "idx", "blog", "spark", "blogMin"):
                 if r.get(f) is not None:
                     item[f] = r[f]
             if item.get("wow") is not None and item["wow"] >= 25:
