@@ -27,7 +27,12 @@ jobs:
           NAVER_HUB_CLIENT_SECRET: ${{ secrets.NAVER_HUB_CLIENT_SECRET }}
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-        run: python3 scripts/build_data.py
+          NAVER_API_KEY: ${{ secrets.NAVER_API_KEY }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          NAVER_CUSTOMER: ${{ secrets.NAVER_CUSTOMER }}
+        run: |
+          python3 scripts/test_blog_volume.py
+          python3 scripts/build_data.py
 
       - name: commit
         run: |
