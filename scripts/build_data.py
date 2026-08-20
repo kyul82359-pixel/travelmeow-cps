@@ -219,7 +219,7 @@ def score_of(row, lo=None, hi=None):
 
 
 # ══════════════════════════════════════════════════════════════
-# 8종 글감 로테이션
+# 글감 로테이션 (앵글 16종 × 상황 6종)
 # ══════════════════════════════════════════════════════════════
 SITUATIONS = ["1인 가구", "신혼부부", "자취생", "아이 있는 집", "부모님 선물", "사무실"]
 
@@ -232,6 +232,14 @@ SHOP_ANGLES = [
     lambda k, c, m, s: f"{s}에 맞는 {k} 고르는 법",
     lambda k, c, m, s: f"{m}월 {k} 트렌드와 지금 사야 하는 이유",
     lambda k, c, m, s: f"{k} vs 대체품, 뭐가 더 이득일까",
+    lambda k, c, m, s: f"{k} 가격대별 정리 — 3만원·10만원·30만원",
+    lambda k, c, m, s: f"{k} 실패 없는 브랜드 3곳과 그 이유",
+    lambda k, c, m, s: f"{k} 사기 전 확인할 체크리스트 7가지",
+    lambda k, c, m, s: f"{k} 오래 쓰는 관리법과 교체 주기",
+    lambda k, c, m, s: f"{k} 온라인 vs 오프라인, 어디가 더 쌀까",
+    lambda k, c, m, s: f"{k} 리뷰 조작 걸러내는 법",
+    lambda k, c, m, s: f"{k} 사은품·쿠폰까지 챙기는 구매 순서",
+    lambda k, c, m, s: f"{k} 후회한 사람들이 공통으로 놓친 것",
 ]
 
 TRAVEL_ANGLES = [
@@ -243,7 +251,18 @@ TRAVEL_ANGLES = [
     lambda k, c, m, s: f"{k} 처음 가는 사람을 위한 코스 추천",
     lambda k, c, m, s: f"{m}월 {k} 날씨와 옷차림",
     lambda k, c, m, s: f"{k} 이심·유심·환전 준비 가이드",
+    lambda k, c, m, s: f"{k} 공항에서 시내까지 가는 법 3가지",
+    lambda k, c, m, s: f"{k} 현지 교통패스, 사야 할까 말아야 할까",
+    lambda k, c, m, s: f"{k} 아이와 함께 갈 때 알아야 할 것",
+    lambda k, c, m, s: f"{k} 혼자 가도 괜찮을까 — 1인 여행 기준",
+    lambda k, c, m, s: f"{k} 예산 100만원으로 가능할까",
+    lambda k, c, m, s: f"{k} 여행자보험 꼭 들어야 하는 이유",
+    lambda k, c, m, s: f"{k} 가서 후회한 것 vs 잘한 것",
+    lambda k, c, m, s: f"{k} 성수기 피하는 최적 시기",
 ]
+
+SOJAE_N = 3          # 키워드당 노출할 글감 수
+PICK_STRIDE = 5      # 앵글 목록에서 몇 칸씩 건너뛰며 고를지
 
 
 def _kwhash(kw):
@@ -252,10 +271,11 @@ def _kwhash(kw):
 
 def sojae_for(kw, cat, rank, round_no):
     angles = TRAVEL_ANGLES if cat.startswith("여행") else SHOP_ANGLES
+    n = len(angles)
     h = _kwhash(kw)
-    base = (round_no * 3 + rank + h) % 8
+    base = (round_no * 3 + rank + h) % n
     sit = SITUATIONS[(round_no + rank + h) % len(SITUATIONS)]
-    picks = [(base + off) % 8 for off in (0, 3, 6)]
+    picks = [(base + PICK_STRIDE * j) % n for j in range(SOJAE_N)]
     return [angles[i](kw, cat, NOW.month, sit) for i in picks]
 
 
