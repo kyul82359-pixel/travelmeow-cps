@@ -16,7 +16,8 @@ v7 일일 로테이션 — data.json 자동 생성 (세션 없이 GitHub Actions
 
 환경변수
   필수: 없음 (풀만 있으면 동작)
-  선택: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET
+  선택(택1): NAVER_HUB_CLIENT_ID / NAVER_HUB_CLIENT_SECRET   ← NAVER API HUB (권장)
+             NAVER_CLIENT_ID / NAVER_CLIENT_SECRET           ← 구 개발자센터 키
         → 데이터랩 검색어트렌드(성장률·스파크라인·검색지수) + 블로그 월간 발행량 추가
 """
 import json, os, re, sys, time, math, random
@@ -26,9 +27,33 @@ import urllib.request, urllib.parse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from commercial_filter import is_commercial  # noqa
 
+# ── 인증 백엔드 ────────────────────────────────
+# 네이버 검색/데이터랭 API는 NAVER API HUB(네이버 클라우드 플랫폼)로 이관됨.
+# 개발자센터(openapi.naver.com) 키는 2027-06-30까지만 유효하고,
+# 신규 앱에는 '검색' API 자체가 목록에 없어 401이 난다.
+#   1순위: NAVER_HUB_CLIENT_ID / NAVER_HUB_CLIENT_SECRET  (API HUB)
+#   2순위: NAVER_CLIENT_ID / NAVER_CLIENT_SECRET          (기존 개발자센터 키)
+HUB_ID = os.environ.get("NAVER_HUB_CLIENT_ID", "").strip()
+HUB_SEC = os.environ.get("NAVER_HUB_CLIENT_SECRET", "").strip()
 CID = os.environ.get("NAVER_CLIENT_ID", "").strip()
 CSEC = os.environ.get("NAVER_CLIENT_SECRET", "").strip()
-RICH = bool(CID and CSEC)
+
+if HUB_ID and HUB_SEC:
+    BACKEND = "hub"
+    API_BASE = "https://naverapihub.apigw.ntruss.com"
+    AUTH = {"X-NCP-APIGW-API-KEY-ID": HUB_ID, "X-NCP-APIGW-API-KEY": HUB_SEC}
+    BLOG_PATH, TREND_PATH = "/search/v1/blog", "/search-trend/v1/search"
+elif CID and CSEC:
+    BACKEND = "legacy"
+    API_BASE = "https://openapi.naver.com"
+    AUTH = {"X-Naver-Client-Id": CID, "X-Naver-Client-Secret": CSEC}
+    BLOG_PATH, TREND_PATH = "/v1/search/blog.json", "/v1/datalab/search"
+else:
+    BACKEND = None
+    API_BASE = AUTH = BLOG_PATH = TREND_PATH = None
+
+RICH = BACKEND is not None
+MAX_FAILS = 12          # 연속 실패가 이만큼 쌓이면 보강을 포기한다
 
 KST = dt.timezone(dt.timedelta(hours=9))
 NOW = dt.datetime.now(KST)
@@ -68,8 +93,9 @@ def current_slot():
 # ══════════════════════════════════════════════════════════════
 # 네이버 오픈API (선택)
 # ══════════════════════════════════════════════════════════════
-def _open_api(url, data=None):
-    headers = {"X-Naver-Client-Id": CID, "X-Naver-Client-Secret": CSEC}
+def _open_api(path, data=None, query=None):
+    url = API_BASE + path + (("?" + urllib.parse.urlencode(query)) if query else "")
+    headers = dict(AUTH)
     if data is not None:
         headers["Content-Type"] = "application/json"
         req = urllib.request.Request(url, data=json.dumps(data).encode(),
@@ -89,7 +115,7 @@ def datalab_batch(keywords):
         "timeUnit": "date",
         "keywordGroups": [{"groupName": k, "keywords": [k]} for k in keywords[:5]],
     }
-    res = _open_api("https://openapi.naver.com/v1/datalab/search", body)
+    res = _open_api(TREND_PATH, body)
     out = {}
     for g in res.get("results", []):
         name = g.get("title")
@@ -116,8 +142,7 @@ _DATE = re.compile(r"(\d{4})(\d{2})(\d{2})")
 
 def blog_monthly(kw):
     """최근 100건이 쌓이는 데 걸린 기간으로 월간 발행량을 추정."""
-    q = urllib.parse.urlencode({"query": kw, "display": 100, "sort": "date"})
-    res = _open_api("https://openapi.naver.com/v1/search/blog.json?" + q)
+    res = _open_api(BLOG_PATH, query={"query": kw, "display": 100, "sort": "date"})
     items = res.get("items", [])
     total = int(res.get("total", 0) or 0)
     if not items:
@@ -238,6 +263,7 @@ def sojae_for(kw, cat, rank, round_no):
 # 메인
 # ══════════════════════════════════════════════════════════════
 def main():
+    global RICH
     pool = jload("keywords_pool.json", {}).get("categories", {})
     hist = jload("pool_history.json", {"snapshots": []})
     rot = jload("rotation.json", {"round": 0, "history": []})
@@ -286,22 +312,36 @@ def main():
                 if r["kw"] not in seen:
                     seen.add(r["kw"])
                     allkw.append(r["kw"])
-        print("보강 대상 키워드", len(allkw))
+        print("보강 대상 키워드 %d (backend=%s)" % (len(allkw), BACKEND))
 
         trend, blogs = {}, {}
+        fails = 0
         for i in range(0, len(allkw), 5):
+            if fails >= MAX_FAILS:
+                print("!! 검색어트렌드 연속 실패 %d회 — 보강 중단" % fails)
+                break
             try:
                 trend.update(datalab_batch(allkw[i:i + 5]))
+                fails = 0
             except Exception as e:
-                print("datalab fail", allkw[i:i + 5], e)
+                fails += 1
+                if fails <= 3:
+                    print("datalab fail", allkw[i:i + 5], e)
             time.sleep(0.15)
         print("datalab ok", len(trend))
 
+        fails = 0
         for k in allkw:
+            if fails >= MAX_FAILS:
+                print("!! 블로그 검색 연속 실패 %d회 — 보강 중단" % fails)
+                break
             try:
                 blogs[k] = blog_monthly(k)
+                fails = 0
             except Exception as e:
-                print("blog fail", k, e)
+                fails += 1
+                if fails <= 3:
+                    print("blog fail", k, e)
             time.sleep(0.12)
         print("blog ok", len(blogs))
 
@@ -314,8 +354,13 @@ def main():
                     r["idx"] = t["idx"]
                 if blogs.get(r["kw"]) is not None:
                     r["blog"] = blogs[r["kw"]]
+
+        # 실제로 아무것도 못 받아왔으면 rich=False 로 정직하게 표시
+        if not trend and not blogs:
+            RICH = False
+            print("!! 보강 데이터 0건 — SearchAd 신호만으로 산출 (키/권한 확인 필요)")
     else:
-        print("NAVER_CLIENT_ID/SECRET 없음 → SearchAd 신호만으로 산출")
+        print("네이버 API 키 없음 → SearchAd 신호만으로 산출")
 
     # ── 최종 점수 & 선정 ────────────────────────────────────────
     tabs = {}
