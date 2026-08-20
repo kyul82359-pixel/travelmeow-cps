@@ -149,6 +149,16 @@
   .hz-card { flex:1; min-width:132px; background:linear-gradient(160deg,#fffbef,#fff3cf); border:1.5px solid #f0d98a; border-radius:12px; padding:10px 12px; cursor:pointer; }
   .hz-card .k { font-size:13.5px; font-weight:800; }
   .hz-card .m { font-size:10.5px; color:#8a6410; margin-top:4px; line-height:1.6; }
+  /* 🆕 오늘 새로 들어온 키워드 */
+  .newzone { margin:14px 16px 4px; }
+  .newzone .nz-t { font-size:12px; font-weight:800; color:#1f5f9e; margin-bottom:8px; letter-spacing:0.02em; }
+  .newzone .nz-t em { font-style:normal; font-weight:600; color:#7a8896; font-size:11px; margin-left:6px; }
+  .nz-cards { display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+  .nz-cards::-webkit-scrollbar { display:none; }
+  .nz-card { flex:0 0 auto; min-width:150px; max-width:210px; background:linear-gradient(160deg,#f2f8ff,#e3efff); border:1.5px solid #b9d5f5; border-radius:12px; padding:10px 12px; cursor:pointer; position:relative; }
+  .nz-card .k { font-size:13.5px; font-weight:800; padding-right:34px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .nz-card .m { font-size:10.5px; color:#3d6d9e; margin-top:4px; line-height:1.6; }
+  .nz-card .s { position:absolute; top:8px; right:9px; font-size:11px; font-weight:800; color:#1f5f9e; background:#fff; border-radius:999px; padding:1px 7px; }
   .countdown { font-size:11px; color:var(--muted); }
   .countdown b { color:#2f7fc4; }
   .skel { padding:4px 16px; }
@@ -404,6 +414,7 @@
   <div class="view show" id="v-home">
     <div class="hero" id="hero"></div>
     <div class="honeyzone hidden" id="honeyzone"></div>
+    <div class="newzone hidden" id="newzone"></div>
     <div class="chips" id="chips"></div>
     <div class="subtabs hidden" id="subtabs">
       <button class="subtab on" data-s="커넥트">쇼핑 커넥트</button>
@@ -651,17 +662,45 @@ function renderHoney() {
   box.classList.remove("hidden");
   box.innerHTML = `<div class="hz-t">🍯 오늘의 꿀키워드 — 검색은 많고 쓴 사람은 적어요</div><div class="hz-cards">${top.map(it =>
     `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>월 발행 <b>${fmtN(it.blog)}</b> · 경쟁 ${compTxt(it.blog)}</div></div>`).join("")}</div>`;
-  box.querySelectorAll("[data-hz]").forEach(c => c.addEventListener("click", () => {
-    const t = c.dataset.hz.split(":")[0];
-    if (CATS.includes(t)) {
-      curTab = t;
-      if (c.dataset.hz.includes(":")) curSub = c.dataset.hz.split(":")[1] === "마이리얼트립" ? "마이리얼트립" : "커넥트";
-      $("chips").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on", x.dataset.c===t));
-      renderTab();
-      $("tab-label").scrollIntoView({behavior:"smooth"});
-    }
-  }));
+  box.querySelectorAll("[data-hz]").forEach(c => c.addEventListener("click", () => goTab(c.dataset.hz)));
 }
+function goTab(tabKey) {
+  const t = String(tabKey).split(":")[0];
+  if (!CATS.includes(t)) return;
+  curTab = t;
+  if (String(tabKey).includes(":")) curSub = String(tabKey).split(":")[1] === "마이리얼트립" ? "마이리얼트립" : "커넥트";
+  $("chips").querySelectorAll(".chip").forEach(x => x.classList.toggle("on", x.dataset.c === t));
+  renderTab();
+  $("tab-label").scrollIntoView({ behavior:"smooth", block:"start" });
+}
+
+function renderNew() {
+  const box = $("newzone"); if (!box) return;
+  let list = DATA.newkw;
+  if (!list || !list.length) {
+    // 폴백: 각 탭에서 new 플래그가 붙은 항목을 모아 쓴다
+    const seen = new Set(); list = [];
+    Object.entries(DATA.tabs || {}).forEach(([tab, items]) => (items || []).forEach(it => {
+      if (tab === "전체" || !it.new || seen.has(it.kw)) return;
+      seen.add(it.kw);
+      list.push({ kw: it.kw, cat: tab, score: it.score, vol: it.vol, blog: it.blog });
+    }));
+    list.sort((a, b) => b.score - a.score);
+    list = list.slice(0, 8);
+  }
+  if (!list.length) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  box.innerHTML = `<div class="nz-t">🆕 오늘 새로 들어온 키워드 <em>직전 회차엔 없던 ${list.length}개예요</em></div>`
+    + `<div class="nz-cards">${list.map(it => {
+        const meta = [
+          it.vol != null ? `월 검색 <b>${fmtN(it.vol)}</b>` : "",
+          it.blog != null ? `월 발행 <b>${fmtN(it.blog)}</b>` : "",
+        ].filter(Boolean).join("<br>") || esc(String(it.cat || "").replace(":", " · "));
+        return `<div class="nz-card" data-nz="${esc(it.cat || "")}"><div class="s">${Math.round(it.score || 0)}</div><div class="k">${esc(it.kw)}</div><div class="m">${meta}</div></div>`;
+      }).join("")}</div>`;
+  box.querySelectorAll("[data-nz]").forEach(c => c.addEventListener("click", () => goTab(c.dataset.nz)));
+}
+
 function renderHome() {
   $("fresh").innerHTML = `${esc(DATA.updated||"")} <b>${esc(DATA.round||"")}</b><br><span class="countdown" id="cd"></span>`;
   renderCountdown(); setInterval(renderCountdown, 30000);
@@ -669,6 +708,7 @@ function renderHome() {
   $("hero").innerHTML = `<span class="tag">오늘의 1픽</span><h1>${esc(h.title||h.kw||"")}</h1><p>${esc(h.reason||"")}</p><div class="score-float"><div class="n">0</div><div class="l">기회 점수</div></div>`;
   animateNum($("hero").querySelector(".score-float .n"), Math.round(h.score||100));
   renderHoney();
+  renderNew();
   $("chips").innerHTML = CATS.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
   $("chips").querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
     curTab = c.dataset.c; location.hash = encodeURIComponent(curTab);
