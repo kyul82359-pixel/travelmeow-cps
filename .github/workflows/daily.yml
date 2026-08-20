@@ -1,0 +1,38 @@
+name: build-data
+
+on:
+  schedule:
+    # KST 07:55 / 12:55 / 19:55 — volumes.yml(:30) 보다 먼저 돌아야 함
+    - cron: '55 22 * * *'
+    - cron: '55 3 * * *'
+    - cron: '55 10 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build data.json
+        env:
+          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+        run: python3 scripts/build_data.py
+
+      - name: commit
+        run: |
+          git config user.name 'data-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add data.json rotation.json
+          git diff --cached --quiet && { echo 'no change'; exit 0; }
+          git commit -m 'build data.json [bot]'
+          git pull --rebase --autostash || true
+          git push
