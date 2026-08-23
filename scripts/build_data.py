@@ -278,8 +278,8 @@ def _won(v):
 # 마이리얼트립 검색은 '일본북해도'·'베트남사파' 처럼 나라+도시가 붙은 말을
 # 못 알아듣고 엉뚱한 인기 상품(오사카·다낭)을 돌려준다. 접두 국가명과
 # 접미 상품어를 떼어 도시명만 남기면 정확히 매칭된다.
-MRT_SUF = ("자유여행", "패키지여행", "항공권", "패키지", "입장권", "여행", "호텔",
-           "숙소", "투어", "티켓")
+MRT_SUF = ("가볼만한곳", "자유여행", "패키지여행", "당일치기", "항공권", "패키지",
+           "입장권", "놀거리", "볼거리", "여행", "호텔", "숙소", "투어", "티켓", "맛집")
 MRT_PRE = ("말레이시아", "인도네시아", "필리핀", "싱가포르", "베트남", "태국",
            "일본", "중국", "대만", "미국", "유럽", "국내")
 
@@ -310,6 +310,11 @@ def fetch_myrealtrip_deals(kw, size=5):
     with urllib.request.urlopen(req, timeout=15) as r:
         res = json.load(r)
     items = (res.get("data") or {}).get("items") or res.get("items") or []
+    # 매칭 실패 시 마이리얼트립은 '없음'이 아니라 아무 인기 상품이나 돌려준다.
+    # (덕구온천 → 후쿠오카 버스투어) 지역명이 상품명에 하나도 안 걸리면 버린다.
+    key = query if len(query) <= 3 else query[:3]
+    if not any(key in (it.get("itemName") or it.get("name") or "") for it in items):
+        return None
     out = []
     for i, it in enumerate(items[:size]):
         name = it.get("itemName") or it.get("name")
