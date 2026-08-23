@@ -45,14 +45,16 @@ if HUB_ID and HUB_SEC:
     API_BASE = "https://naverapihub.apigw.ntruss.com"
     AUTH = {"X-NCP-APIGW-API-KEY-ID": HUB_ID, "X-NCP-APIGW-API-KEY": HUB_SEC}
     BLOG_PATH, TREND_PATH = "/search/v1/blog", "/search-trend/v1/search"
+    CAFE_PATH = "/search/v1/cafearticle"
 elif CID and CSEC:
     BACKEND = "legacy"
     API_BASE = "https://openapi.naver.com"
     AUTH = {"X-Naver-Client-Id": CID, "X-Naver-Client-Secret": CSEC}
     BLOG_PATH, TREND_PATH = "/v1/search/blog.json", "/v1/datalab/search"
+    CAFE_PATH = "/v1/search/cafearticle.json"
 else:
     BACKEND = None
-    API_BASE = AUTH = BLOG_PATH = TREND_PATH = None
+    API_BASE = AUTH = BLOG_PATH = TREND_PATH = CAFE_PATH = None
 
 RICH = BACKEND is not None
 MAX_FAILS = 12          # 연속 실패가 이만큼 쌓이면 보강을 포기한다
@@ -82,6 +84,15 @@ def jload(path, default):
     try:
         with open(path) as f:
             return json.load(f)
+    except Exception:
+        return default
+
+
+def _int(v, default=0):
+    if isinstance(v, (int, float)):
+        return int(v)
+    try:
+        return int(str(v).replace("<", "").replace(",", "").strip())
     except Exception:
         return default
 
@@ -145,22 +156,44 @@ def datalab_batch(keywords):
 _DATE = re.compile(r"(\d{4})(\d{2})(\d{2})")
 
 
-def _blog_page(kw, start):
-    """블로그 검색 한 페이지 → (postdate 문자열 리스트, 건수)"""
-    res = _open_api(BLOG_PATH, query={"query": kw, "display": blog_volume.PAGE,
-                                      "sort": "date", "start": start})
-    items = res.get("items", [])
-    dates = []
-    for it in items:
-        m = _DATE.search(it.get("postdate", "") or "")
-        if m:
-            dates.append(m.group(0))
-    return dates, len(items)
-
-
 def blog_monthly(kw):
-    """완전한 하루들의 실제 건수로 월간 발행량 산출. → (값, 포화여부)"""
-    return blog_volume.measure(_blog_page, kw)
+    """완전한 하루들의 실제 건수로 월간 발행량 산출.
+
+    첫 페이지 응답의 total(누적 발행량)도 같이 주워 담는다 — 추가 호출 없이
+    경쟁 별점의 '콘텐츠 포화도' 항목에 쓰인다.
+    → (월간 발행량, 포화여부, 누적 발행량)
+    """
+    box = {"total": None}
+
+    def page(k, start):
+        res = _open_api(BLOG_PATH, query={"query": k, "display": blog_volume.PAGE,
+                                          "sort": "date", "start": start})
+        if box["total"] is None:
+            box["total"] = _int(res.get("total"), 0)
+        items = res.get("items", [])
+        dates = []
+        for it in items:
+            m = _DATE.search(it.get("postdate", "") or "")
+            if m:
+                dates.append(m.group(0))
+        return dates, len(items)
+
+    v, sat = blog_volume.measure(page, kw)
+    return v, sat, box["total"]
+
+
+def cafe_total(kw):
+    """카페글 누적 발행량.
+
+    네이버 카페글 검색 API는 블로그와 달리 postdate 를 주지 않는다
+    (title/link/description/cafename/cafeurl 뿐). 그래서 '월간' 카페 발행량은
+    원리적으로 측정할 수 없고, 누적 total 만 얻을 수 있다.
+    → 경쟁 별점에서는 블로그도 누적으로 맞춰서 (블로그누적+카페누적)/월검색량
+      이라는 같은 단위의 비율로 합산한다.
+    display=1 이므로 키워드당 딱 1회 호출.
+    """
+    res = _open_api(CAFE_PATH, query={"query": kw, "display": 1, "sort": "sim"})
+    return _int(res.get("total"), 0)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -175,17 +208,12 @@ AD_CUS = os.environ.get("NAVER_CUSTOMER", "").strip()
 AD_OK = bool(AD_KEY and AD_SEC and AD_CUS)
 
 
-def _ad_num(v, default=0):
-    if isinstance(v, (int, float)):
-        return int(v)
-    try:
-        return int(str(v).replace("<", "").replace(",", "").strip())
-    except Exception:
-        return default
-
-
 def searchad_volumes(keywords):
-    """[kw] → {kw: 월 검색량}. 5개씩 배치 조회."""
+    """[kw] → {kw: {'vol':월검색량, 'ads':노출광고수, 'comp':광고경쟁도}}. 5개씩 배치.
+
+    검색량뿐 아니라 광고 경쟁도(compIdx)·노출 광고 수(plAvgDepth)도 같은 응답에
+    들어 있으므로 함께 최신화한다 — 경쟁 별점의 3.0점이 여기서 나온다.
+    """
     out = {}
     if not AD_OK:
         return out
@@ -208,8 +236,12 @@ def searchad_volumes(keywords):
         for item in res.get("keywordList", []):
             rel = str(item.get("relKeyword", "")).replace(" ", "").upper()
             if rel in wanted:
-                got[wanted[rel]] = (_ad_num(item.get("monthlyPcQcCnt"))
-                                    + _ad_num(item.get("monthlyMobileQcCnt")))
+                got[wanted[rel]] = {
+                    "vol": (_int(item.get("monthlyPcQcCnt"))
+                            + _int(item.get("monthlyMobileQcCnt"))),
+                    "ads": _int(item.get("plAvgDepth"), 0),
+                    "comp": str(item.get("compIdx") or "").strip(),
+                }
         return got
 
     batches = [keywords[i:i + 5] for i in range(0, len(keywords), 5)]
@@ -225,6 +257,49 @@ def _safe(fn, arg, default):
     except Exception as e:
         print("  ! %s(%s) %s" % (getattr(fn, "__name__", "fn"), arg, e))
         return default
+
+
+# ══════════════════════════════════════════════════════════════
+# 마이리얼트립 — 키워드별 판매 TOP5 (여행:마이리얼트립 탭에만)
+# ══════════════════════════════════════════════════════════════
+MRT_KEY = os.environ.get("MYREALTRIP_API_KEY", "").strip()
+MRT_BASE = "https://partner-ext-api.myrealtrip.com"
+MRT_OK = bool(MRT_KEY)
+
+
+def _won(v):
+    if isinstance(v, (int, float)) and v > 0:
+        return format(int(v), ",") + "원~"
+    s = str(v or "").strip()
+    return s if s else ""
+
+
+def fetch_myrealtrip_deals(kw, size=5):
+    """투어·티켓 상품을 판매량순으로 상위 N개. 실패하면 None (빌드는 계속 간다)."""
+    if not MRT_OK:
+        return None
+    query = kw[:-2] if kw.endswith("여행") and len(kw) > 3 else kw   # 싱가포르여행 → 싱가포르
+    body = {"keyword": query, "sort": "selling_count_desc", "page": 1, "size": size}
+    req = urllib.request.Request(
+        MRT_BASE + "/v1/products/tna/search", data=json.dumps(body).encode(),
+        headers={"Authorization": "Bearer " + MRT_KEY, "Content-Type": "application/json"},
+        method="POST")
+    with urllib.request.urlopen(req, timeout=15) as r:
+        res = json.load(r)
+    items = (res.get("data") or {}).get("items") or res.get("items") or []
+    out = []
+    for i, it in enumerate(items[:size]):
+        name = it.get("itemName") or it.get("name")
+        url = it.get("productUrl") or it.get("url")
+        if not (name and url):
+            continue
+        out.append({
+            "name": "판매 %d위 · %s" % (len(out) + 1, name),
+            "price": _won(it.get("salePrice")),
+            "rating": it.get("reviewScore") or "",
+            "url": url,
+        })
+    return out or None
 
 
 # ══════════════════════════════════════════════════════════════
@@ -244,6 +319,89 @@ def growth_ratio(kw, hist):
 
 
 COMP_E = {"낮음": 1.30, "중간": 0.95, "높음": 0.62}
+
+
+# ══════════════════════════════════════════════════════════════
+# 경쟁 별점 — 5.0 만점, 별이 많을수록 "진입하기 좋다"(경쟁 여유가 크다)
+#
+#   A 광고 경쟁도 compIdx              2.0점   검색광고 API — 정확
+#   B 콘텐츠 포화도 (블로그+카페 누적)  1.5점   검색 API — 절대값은 과소, 순위는 신뢰
+#   C 노출 광고 수 plAvgDepth           1.0점   검색광고 API — 정확
+#   D 수요 성장 추세 (전주 대비)        0.5점   데이터랩 — 정확
+#
+# 5점 중 3.5점을 오차 없는 검색광고/데이터랩 값에서 뽑는다. 우리 블로그 검색
+# 지수가 상용 도구보다 좁다는 걸 알고 있기 때문에, 그 영향이 별점 전체를
+# 좌우하지 못하도록 일부러 1.5점으로 묶어둔 것이다.
+# ══════════════════════════════════════════════════════════════
+STAR_AD = {"낮음": 2.0, "중간": 1.1, "높음": 0.3}
+STAR_AD_UNKNOWN = 1.1
+
+SAT_BASE = 0.5        # (누적 발행량 ÷ 월 검색량) 이 이하면 포화도 만점
+SAT_STEP = 4.0        # 비율이 4배 될 때마다 0.375점씩 깎는다
+SAT_MAX = 1.5
+
+
+def _sat_points(posts, vol):
+    """포화도: 검색 1회당 이미 쌓여 있는 글이 몇 개인가. 적을수록 별이 많다."""
+    if posts is None or not vol or vol <= 0:
+        return None
+    r = posts / float(vol)
+    if r <= SAT_BASE:
+        return SAT_MAX
+    steps = math.log(r / SAT_BASE, SAT_STEP)
+    return max(0.0, SAT_MAX - 0.375 * steps)
+
+
+def _depth_points(ads):
+    """노출 광고 수: 광고주가 많이 붙을수록 그 자리를 두고 싸우는 사람이 많다."""
+    if ads is None:
+        return 0.6
+    if ads <= 2:
+        return 1.0
+    if ads <= 5:
+        return 0.75
+    if ads <= 8:
+        return 0.5
+    if ads <= 11:
+        return 0.3
+    return 0.15
+
+
+def _trend_points(wow):
+    """수요가 커지는 중이면 새로 들어갈 자리도 같이 생긴다."""
+    if wow is None:
+        return 0.25
+    if wow >= 25:
+        return 0.5
+    if wow >= 5:
+        return 0.35
+    if wow >= -5:
+        return 0.25
+    if wow >= -25:
+        return 0.15
+    return 0.05
+
+
+def competition_stars(row):
+    """→ (별점 0.0~5.0 (0.5 단위), 항목별 점수 dict)"""
+    a = STAR_AD.get(row.get("comp") or "", STAR_AD_UNKNOWN)
+    b = _sat_points(row.get("posts"), row.get("vol"))
+    c = _depth_points(row.get("ads"))
+    d = _trend_points(row.get("wow"))
+    est = b is None
+    if est:
+        # 발행량을 못 잰 키워드 — 모른다고 만점을 주지는 않는다. 중립값(0.75)으로 채운다.
+        b = SAT_MAX * 0.5
+    parts = {"ad": a, "sat": round(b, 2), "depth": c, "trend": d, "est": est}
+    total = a + b + c + d
+    return round(min(5.0, max(0.0, total)) * 2) / 2.0, parts
+
+
+def ease_from_stars(stars):
+    """별점 → 기회 점수의 경쟁 계수 E. 0★ 0.62 ~ 5★ 1.35 (기존 범위와 동일)"""
+    if stars is None:
+        return None
+    return 0.62 + (stars / 5.0) * 0.73
 
 
 def ease_from_blog(blog):
@@ -274,8 +432,12 @@ def score_of(row, lo=None, hi=None):
         g = 1 + (row["wow"] / 100.0)
     G = 1.0 if g is None else max(0.75, min(1.55, g))
 
-    # E: 경쟁 여유
-    E = ease_from_blog(row.get("blog"))
+    # E: 경쟁 여유 — 사이트에 보여주는 별점과 같은 근거를 쓴다
+    #    (별점 ↔ 기회 점수가 서로 엇갈리지 않도록)
+    stars, _ = competition_stars(row)
+    E = ease_from_stars(stars)
+    if E is None:
+        E = ease_from_blog(row.get("blog"))
     if E is None:
         E = COMP_E.get(row.get("comp", ""), 0.95)
     # 광고가 많이 붙은 키워드는 상업성 가산 (0~15 → 1.0~1.12)
@@ -402,6 +564,7 @@ def main():
         print("보강 대상 키워드 %d (backend=%s)" % (len(allkw), BACKEND))
 
         trend, blogs, saturated = {}, {}, set()
+        btotal, ctotal = {}, {}          # 누적 발행량 (블로그 / 카페)
         t0 = time.time()
 
         # ── 검색어트렌드 (5개씩 배치, 병렬) ─────────────────────
@@ -434,27 +597,55 @@ def main():
 
         def do_blog(k):
             if bfails[0] >= MAX_FAILS:
-                return k, None, False
+                return k, None, False, None
             try:
-                v, sat = blog_monthly(k)
+                v, sat, tot = blog_monthly(k)
                 bfails[0] = 0
-                return k, v, sat
+                return k, v, sat, tot
             except Exception as e:
                 bfails[0] += 1
                 if bfails[0] <= 3:
                     print("blog fail", k, e)
-                return k, None, False
+                return k, None, False, None
 
         with ThreadPoolExecutor(max_workers=WORKERS) as ex:
-            for k, v, sat in ex.map(do_blog, allkw):
+            for k, v, sat, tot in ex.map(do_blog, allkw):
                 if v is not None:
                     blogs[k] = v
                     if sat:
                         saturated.add(k)
+                if tot is not None:
+                    btotal[k] = tot
         if bfails[0] >= MAX_FAILS:
             print("!! 블로그 검색 연속 실패 — 일부 중단")
         print("blog ok %d/%d · 포화(측정한계) %d개 (%.0fs)"
               % (len(blogs), len(allkw), len(saturated), time.time() - t1))
+
+        # ── 카페 누적 발행량 (키워드당 1회, 병렬) ────────────────
+        # 카페글 검색 API 는 postdate 가 없어 '월간'을 잴 수 없다 → 누적만 쓴다.
+        t1c = time.time()
+        cfails = [0]
+
+        def do_cafe(k):
+            if cfails[0] >= MAX_FAILS:
+                return k, None
+            try:
+                t = cafe_total(k)
+                cfails[0] = 0
+                return k, t
+            except Exception as e:
+                cfails[0] += 1
+                if cfails[0] <= 3:
+                    print("cafe fail", k, e)
+                return k, None
+
+        with ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            for k, t in ex.map(do_cafe, allkw):
+                if t is not None:
+                    ctotal[k] = t
+        if cfails[0] >= MAX_FAILS:
+            print("!! 카페 검색 연속 실패 — 블로그 누적만으로 포화도 계산")
+        print("cafe ok %d/%d (%.0fs)" % (len(ctotal), len(allkw), time.time() - t1c))
 
         # ── 검색량 최신화 (풀은 주 1회라 최대 7일 묵음) ──────────
         t2 = time.time()
@@ -463,22 +654,46 @@ def main():
 
         for cat in TABS:
             for r in cand.get(cat, []):
-                t = trend.get(r["kw"])
+                k = r["kw"]
+                t = trend.get(k)
                 if t:
                     r["spark"] = t["spark"]
                     r["wow"] = t["wow"]
                     r["idx"] = t["idx"]
-                if blogs.get(r["kw"]) is not None:
-                    r["blog"] = blogs[r["kw"]]
-                    if r["kw"] in saturated:
+                if blogs.get(k) is not None:
+                    r["blog"] = blogs[k]
+                    if k in saturated:
                         r["blogMin"] = True      # "이상"임을 사이트에 알림
-                if fresh.get(r["kw"]):
-                    r["vol"] = fresh[r["kw"]]
+                f = fresh.get(k)
+                if f:
+                    if f.get("vol"):
+                        r["vol"] = f["vol"]
+                    if f.get("ads"):
+                        r["ads"] = f["ads"]
+                    if f.get("comp"):
+                        r["comp"] = f["comp"]
+                # 콘텐츠 포화도용 누적 발행량 = 블로그 + 카페
+                if btotal.get(k) is not None:
+                    r["posts"] = btotal[k] + (ctotal.get(k) or 0)
+                    r["bTot"] = btotal[k]
+                    if ctotal.get(k) is not None:
+                        r["cTot"] = ctotal[k]
 
         # 실제로 아무것도 못 받아왔으면 rich=False 로 정직하게 표시
         if not trend and not blogs:
             RICH = False
             print("!! 보강 데이터 0건 — SearchAd 신호만으로 산출 (키/권한 확인 필요)")
+
+        # ── 포화도 분포 로그 (별점 보정용 — Actions 로그에서 확인) ──
+        ratios = sorted(r["posts"] / float(r["vol"])
+                        for cat in TABS for r in cand.get(cat, [])
+                        if r.get("posts") is not None and (r.get("vol") or 0) > 0)
+        if ratios:
+            def q(p):
+                return ratios[min(len(ratios) - 1, int(len(ratios) * p))]
+            print("포화도(누적글÷월검색) 분포 n=%d — p10 %.2f · p25 %.2f · 중앙 %.2f "
+                  "· p75 %.2f · p90 %.2f · 최대 %.2f"
+                  % (len(ratios), q(.10), q(.25), q(.50), q(.75), q(.90), ratios[-1]))
     else:
         print("네이버 API 키 없음 → SearchAd 신호만으로 산출")
 
@@ -495,14 +710,17 @@ def main():
         prev_rank = {it["kw"]: i for i, it in enumerate(prev_tabs.get(cat, []))}
         out = []
         for i, r in enumerate(picked):
+            stars, parts = competition_stars(r)
             item = {
                 "kw": r["kw"],
                 "cat": cat.replace(":", " · "),
                 "score": r["score"],
                 "vol": r.get("vol"),
+                "stars": stars,
+                "starParts": parts,
                 "sojae": sojae_for(r["kw"], cat, i, round_no),
             }
-            for f in ("wow", "idx", "blog", "spark", "blogMin"):
+            for f in ("wow", "idx", "spark", "ads", "comp"):
                 if r.get(f) is not None:
                     item[f] = r[f]
             if item.get("wow") is not None and item["wow"] >= 25:
@@ -516,6 +734,31 @@ def main():
             out.append(item)
         tabs[cat] = out
         print("%-16s %2d개 · 최고 %s" % (cat, len(out), out[0]["score"] if out else "-"))
+
+    # ── 마이리얼트립 판매 TOP5 (여행:마이리얼트립 탭에만) ────────
+    MRT_CAT = "여행:마이리얼트립"
+    if MRT_OK and tabs.get(MRT_CAT):
+        t3 = time.time()
+        mkws = [it["kw"] for it in tabs[MRT_CAT]]
+
+        def do_mrt(k):
+            try:
+                return k, fetch_myrealtrip_deals(k)
+            except Exception as e:
+                print("myrealtrip fail", k, e)
+                return k, None
+
+        got = {}
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for k, d in ex.map(do_mrt, mkws):
+                if d:
+                    got[k] = d
+        for it in tabs[MRT_CAT]:
+            if got.get(it["kw"]):
+                it["deals"] = got[it["kw"]]
+        print("마이리얼트립 상품 %d/%d (%.0fs)" % (len(got), len(mkws), time.time() - t3))
+    elif not MRT_OK:
+        print("MYREALTRIP_API_KEY 없음 → 연결 상품 생략")
 
     # ── 전체 탭 (교차 카테고리 TOP 20) ──────────────────────────
     merged, seen = [], set()
@@ -561,7 +804,7 @@ def main():
         for it in tabs[cat]:
             if it["kw"] not in prev_all_kws:
                 newkw.append({"kw": it["kw"], "cat": cat, "score": it["score"],
-                              "vol": it.get("vol"), "blog": it.get("blog")})
+                              "vol": it.get("vol"), "stars": it.get("stars")})
     newkw.sort(key=lambda x: -x["score"])
     newkw = newkw[:8]
 
@@ -574,11 +817,8 @@ def main():
             bits.append("월 검색 %s회" % format(h["vol"], ","))
         if h.get("wow") is not None:
             bits.append("전주 대비 %s%d%%" % ("+" if h["wow"] > 0 else "", round(h["wow"])))
-        if h.get("blog") is not None:
-            lvl = "낮음" if h["blog"] < BLOG_TH[0] else ("보통" if h["blog"] < BLOG_TH[1] else "높음")
-            bits.append("블로그 경쟁 %s" % lvl)
-        elif h.get("cat"):
-            bits.append("광고 경쟁 지표 기준 여유 있는 구간")
+        if h.get("stars") is not None:
+            bits.append("경쟁 여유 %s점" % ("%.1f" % h["stars"]).replace(".0", ""))
         hero = {
             "kw": h["kw"],
             "title": "「%s」 지금이 기회예요" % h["kw"],
@@ -591,7 +831,7 @@ def main():
             NOW.month, NOW.day, "월화수목금토일"[NOW.weekday()], ROUND_SLOTS[slot_i][0]),
         "round": slot_label,
         "roundNo": round_no,
-        "blogTh": BLOG_TH,
+        "starMax": 5,
         "rich": RICH,
         "hero": hero,
         "newkw": newkw,
