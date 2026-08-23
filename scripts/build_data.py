@@ -274,11 +274,34 @@ def _won(v):
     return s if s else ""
 
 
+# 검색어를 지역명만 남기고 다듬는다.
+# 마이리얼트립 검색은 '일본북해도'·'베트남사파' 처럼 나라+도시가 붙은 말을
+# 못 알아듣고 엉뚱한 인기 상품(오사카·다낭)을 돌려준다. 접두 국가명과
+# 접미 상품어를 떼어 도시명만 남기면 정확히 매칭된다.
+MRT_SUF = ("자유여행", "패키지여행", "항공권", "패키지", "입장권", "여행", "호텔",
+           "숙소", "투어", "티켓")
+MRT_PRE = ("말레이시아", "인도네시아", "필리핀", "싱가포르", "베트남", "태국",
+           "일본", "중국", "대만", "미국", "유럽", "국내")
+
+
+def mrt_query(kw):
+    q = kw.strip()
+    for suf in MRT_SUF:
+        if q.endswith(suf) and len(q) - len(suf) >= 1:
+            q = q[:-len(suf)]
+            break
+    for pre in MRT_PRE:
+        if q.startswith(pre) and len(q) - len(pre) >= 1:
+            q = q[len(pre):]
+            break
+    return q or kw
+
+
 def fetch_myrealtrip_deals(kw, size=5):
     """투어·티켓 상품을 판매량순으로 상위 N개. 실패하면 None (빌드는 계속 간다)."""
     if not MRT_OK:
         return None
-    query = kw[:-2] if kw.endswith("여행") and len(kw) > 3 else kw   # 싱가포르여행 → 싱가포르
+    query = mrt_query(kw)
     body = {"keyword": query, "sort": "selling_count_desc", "page": 1, "size": size}
     req = urllib.request.Request(
         MRT_BASE + "/v1/products/tna/search", data=json.dumps(body).encode(),
