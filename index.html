@@ -597,7 +597,8 @@ const starTip = it => {
   const head = `경쟁 여유 ${starNum(it.stars)} / ${STAR_MAX()} — 별이 많을수록 진입하기 좋아요`;
   if (!p) return head;
   const f = (v, m) => `${Number(v||0).toFixed(2)} / ${m}`;
-  return `${head}\n· 광고 경쟁도 ${f(p.ad,2)}\n· 콘텐츠 포화도(블로그+카페) ${f(p.sat,1.5)}${p.est?" · 추정":""}\n· 노출 광고 수 ${f(p.depth,1)}\n· 수요 추세 ${f(p.trend,0.5)}`;
+  const raw = p.posts != null ? ` — 이미 쌓인 글 ${p.posts.toLocaleString()}개, 검색 1회당 ${p.r}개` : "";
+  return `${head}\n· 광고 경쟁도 ${f(p.ad,2)}\n· 콘텐츠 포화도(블로그+카페 누적) ${f(p.sat,1.5)}${p.est?" · 추정":raw}\n· 노출 광고 수 ${f(p.depth,1)}\n· 수요 추세 ${f(p.trend,0.5)}`;
 };
 const starPill = it => it.stars == null ? "" :
   `<span class="pill star" title="${esc(starTip(it))}">경쟁 여유 ${starHtml(it.stars)} <span class="sv">${starNum(it.stars)}</span></span>`;
