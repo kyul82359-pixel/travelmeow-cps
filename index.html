@@ -140,6 +140,12 @@
   .row .r-mini b { color:#3d5a75; font-weight:700; }
   @media (max-width:520px) { .row .r-wow { display:none; } }
   .pill.honey { background:#fff3cf; color:#8a6410; border:1px solid #f0d98a; font-weight:700; }
+  .starw { position:relative; display:inline-block; line-height:1; font-size:12.5px; letter-spacing:0.5px; vertical-align:-1px; }
+  .starw i { color:#dde2ea; font-style:normal; }
+  /* .row .r-mini b 등 상위 규칙에 색이 먹히지 않도록 우선순위를 못박는다 */
+  .starw b { position:absolute; left:0; top:0; overflow:hidden; white-space:nowrap; color:#f2a71b !important; font-weight:400 !important; }
+  .pill.star { background:#fffdf5; border-color:#f0d98a; color:#8a6410; }
+  .pill.star .sv { font-weight:800; }
   .rankb { font-size:10px; font-weight:800; padding:1.5px 6px; border-radius:8px; margin-left:5px; vertical-align:1px; }
   .rankb.up { background:#e3f4e3; color:#1c7a1c; } .rankb.down { background:#fbe7e7; color:#c93a3a; }
   .rankb.new { background:#fff3cf; color:#8a6410; }
@@ -577,10 +583,24 @@ function spark(vals, w=100, h=26, pad=3) {
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts.join(" ")}" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="${lx}" cy="${ly}" r="2.5" fill="#2a78d6"/></svg>`;
 }
 const wowHtml = v => v==null ? "" : (v>0.5 ? `<span class="r-wow up">▲ +${Math.round(v)}%</span>` : v<-0.5 ? `<span class="r-wow down">▼ ${Math.round(v)}%</span>` : `<span class="r-wow">- 0%</span>`);
-const blogTh = () => (DATA && DATA.blogTh) || [1000, 5000];
-// blogMin: 조회 한도(1,000건)를 넘겨 정확한 측정이 불가능한 초고빈도 키워드 → "이상" 표기
-const blogTxt = it => it.blog == null ? null : fmtN(it.blog) + (it.blogMin ? "+" : "");
-const compTxt = b => b==null ? "미측정" : b<blogTh()[0] ? "낮음" : b<blogTh()[1] ? "보통" : "높음";
+/* ── 경쟁 여유 별점 (5점 만점) ────────────────────────────────
+   별이 많을수록 "지금 들어가기 좋은" 키워드다.
+     광고 경쟁도 2.0 + 콘텐츠 포화도(블로그+카페 누적) 1.5
+   + 노출 광고 수 1.0 + 수요 추세 0.5
+   5점 중 3.5점은 네이버 검색광고·데이터랩의 오차 없는 값에서 나온다. */
+const STAR_MAX = () => (DATA && DATA.starMax) || 5;
+const starNum = s => s == null ? "" : (s % 1 ? s.toFixed(1) : String(Math.round(s)));
+const starHtml = s => s == null ? "" :
+  `<span class="starw" role="img" aria-label="경쟁 여유 ${starNum(s)}점 / ${STAR_MAX()}점"><i aria-hidden="true">★★★★★</i><b aria-hidden="true" style="width:${Math.max(0,Math.min(100, s/STAR_MAX()*100)).toFixed(1)}%">★★★★★</b></span>`;
+const starTip = it => {
+  const p = it.starParts;
+  const head = `경쟁 여유 ${starNum(it.stars)} / ${STAR_MAX()} — 별이 많을수록 진입하기 좋아요`;
+  if (!p) return head;
+  const f = (v, m) => `${Number(v||0).toFixed(2)} / ${m}`;
+  return `${head}\n· 광고 경쟁도 ${f(p.ad,2)}\n· 콘텐츠 포화도(블로그+카페) ${f(p.sat,1.5)}${p.est?" · 추정":""}\n· 노출 광고 수 ${f(p.depth,1)}\n· 수요 추세 ${f(p.trend,0.5)}`;
+};
+const starPill = it => it.stars == null ? "" :
+  `<span class="pill star" title="${esc(starTip(it))}">경쟁 여유 ${starHtml(it.stars)} <span class="sv">${starNum(it.stars)}</span></span>`;
 
 function linkBtns(it) {
   if (it.deals) {
@@ -596,12 +616,35 @@ const subkwHtml = it => it.subkw?.length ? `<div class="sojae"><div class="t">�
 const idxPill = it => it.idx != null ? `<span class="pill">검색지수 ${Math.round(it.idx)}</span>` : "";
 const fmtN = n => n == null ? null : n >= 10000 ? (n/10000 >= 100 ? Math.round(n/10000)+"만" : (n/10000).toFixed(1).replace(/\.0$/,"")+"만") : n.toLocaleString();
 const miniHtml = it => {
-  const v = fmtN(it.vol), b = blogTxt(it);
-  if (v == null && b == null) return "";
-  return `<span class="r-mini">${v!=null?`월 <b>${v}</b>`:""}${v!=null&&b!=null?"<br>":""}${b!=null?`월 발행 <b>${b}</b>`:""}</span>`;
+  const v = fmtN(it.vol);
+  const s = it.stars != null ? `${starHtml(it.stars)} ${starNum(it.stars)}` : "";
+  if (v == null && !s) return "";
+  return `<span class="r-mini">${v!=null?`월 <b>${v}</b>`:""}${v!=null&&s?"<br>":""}${s}</span>`;
 };
 const rankBadge = it => it.new ? `<span class="rankb new">NEW</span>` : (it.rankd > 0 ? `<span class="rankb up">▲${it.rankd}</span>` : it.rankd < 0 ? `<span class="rankb down">▼${-it.rankd}</span>` : "");
-const isHoney = it => it.vol != null && it.blog != null && it.vol >= 20000 && it.blog < blogTh()[0];
+/* 🍯 꿀키워드 = 검색은 많은데 경쟁 별점까지 높은 키워드.
+   엄격한 기준부터 시도하고, 그날 해당되는 게 없으면 한 단계씩 완화한다
+   (매일 3개는 반드시 보여주기 위함). */
+const HONEY_STEPS = [[20000,4.0],[10000,3.5],[5000,3.0]];
+let HONEY = new Set(), HONEY_TOP = [];
+function computeHoney() {
+  const seen = new Set(), pool = [];
+  Object.entries((DATA && DATA.tabs) || {}).forEach(([tab, items]) => (items||[]).forEach(it => {
+    if (tab === "전체" || seen.has(it.kw) || it.vol == null || it.stars == null) return;
+    seen.add(it.kw); pool.push({ ...it, _tab: tab });
+  }));
+  const rank = (a,b) => (b.stars - a.stars) || (b.vol - a.vol);
+  let hit = [];
+  for (const [mv, ms] of HONEY_STEPS) {
+    hit = pool.filter(it => it.vol >= mv && it.stars >= ms);
+    if (hit.length >= 3) break;
+  }
+  if (hit.length < 3) hit = pool.slice().sort((a,b)=>(b.stars*Math.log10(Math.max(b.vol,10))) - (a.stars*Math.log10(Math.max(a.vol,10)))).slice(0,3);
+  hit.sort(rank);
+  HONEY_TOP = hit.slice(0,3);
+  HONEY = new Set(hit.map(it => it.kw));
+}
+const isHoney = it => HONEY.has(it.kw);
 const honeyPill = it => isHoney(it) ? `<span class="pill honey">🍯 꿀키워드</span>` : "";
 function animateNum(el, target, ms=800) {
   const t0 = performance.now();
@@ -614,10 +657,10 @@ function animateNum(el, target, ms=800) {
 }
 const volPill = it => it.vol != null ? `<span class="pill">월 검색 ${it.vol.toLocaleString()}회</span>` : "";
 function cardHtml(it, i) {
-  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}${rankBadge(it)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${honeyPill(it)}${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">월 발행 ${blogTxt(it)}</span>`:""}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
+  return `<div class="card"><div class="head"><span class="num">${String(i+1).padStart(2,"0")}</span><span class="kw">${esc(it.kw)}${rankBadge(it)}<span class="cat">${esc(it.cat||"")}</span></span><span class="score"><span class="n">${Math.round(it.score)}</span><br><span class="l">기회 점수</span></span></div><div class="meterrow">${honeyPill(it)}${it.hot?'<span class="pill hot">급상승</span>':""}${idxPill(it)}${volPill(it)}${it.wow!=null?`<span class="pill ${it.wow>0?"up":"down2"}">전주 ${it.wow>0?"+":""}${Math.round(it.wow)}%</span>`:""}${starPill(it)}</div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div>`;
 }
 function rowHtml(it, i) {
-  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${it.blog!=null?`<span class="pill">월 발행 ${blogTxt(it)}건</span>`:""}<span class="pill">경쟁 ${compTxt(it.blog)}</span></div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
+  return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${starPill(it)}</div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
 }
 
 let curTab = "전체", curSub = "커넥트";
@@ -654,17 +697,11 @@ function renderCountdown() {
 }
 function renderHoney() {
   const box = $("honeyzone"); if (!box || !DATA.tabs) return;
-  const seen = new Set(), pool = [];
-  Object.entries(DATA.tabs).forEach(([tab, items]) => items.forEach(it => {
-    if (!isHoney(it) || seen.has(it.kw)) return;
-    seen.add(it.kw); pool.push({ ...it, _tab: tab });
-  }));
-  pool.sort((a,b) => (b.vol/b.blog)*b.score - (a.vol/a.blog)*a.score);
-  const top = pool.slice(0,3);
+  const top = HONEY_TOP;
   if (!top.length) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
-  box.innerHTML = `<div class="hz-t">🍯 오늘의 꿀키워드 — 검색은 많고 쓴 사람은 적어요</div><div class="hz-cards">${top.map(it =>
-    `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>월 발행 <b>${blogTxt(it)}</b> · 경쟁 ${compTxt(it.blog)}</div></div>`).join("")}</div>`;
+  box.innerHTML = `<div class="hz-t">🍯 오늘의 꿀키워드 — 검색은 많은데 경쟁은 헐거워요</div><div class="hz-cards">${top.map(it =>
+    `<div class="hz-card" data-hz="${esc(it._tab)}"><div class="k">${esc(it.kw)}</div><div class="m">월 검색 <b>${fmtN(it.vol)}</b><br>경쟁 여유 ${starHtml(it.stars)} <b>${starNum(it.stars)}</b></div></div>`).join("")}</div>`;
   box.querySelectorAll("[data-hz]").forEach(c => c.addEventListener("click", () => goTab(c.dataset.hz)));
 }
 function goTab(tabKey) {
@@ -686,7 +723,7 @@ function renderNew() {
     Object.entries(DATA.tabs || {}).forEach(([tab, items]) => (items || []).forEach(it => {
       if (tab === "전체" || !it.new || seen.has(it.kw)) return;
       seen.add(it.kw);
-      list.push({ kw: it.kw, cat: tab, score: it.score, vol: it.vol, blog: it.blog });
+      list.push({ kw: it.kw, cat: tab, score: it.score, vol: it.vol, stars: it.stars });
     }));
     list.sort((a, b) => b.score - a.score);
     list = list.slice(0, 8);
@@ -697,7 +734,7 @@ function renderNew() {
     + `<div class="nz-cards">${list.map(it => {
         const meta = [
           it.vol != null ? `월 검색 <b>${fmtN(it.vol)}</b>` : "",
-          it.blog != null ? `월 발행 <b>${fmtN(it.blog)}</b>` : "",
+          it.stars != null ? `경쟁 여유 ${starHtml(it.stars)} <b>${starNum(it.stars)}</b>` : "",
         ].filter(Boolean).join("<br>") || esc(String(it.cat || "").replace(":", " · "));
         return `<div class="nz-card" data-nz="${esc(it.cat || "")}"><div class="s">${Math.round(it.score || 0)}</div><div class="k">${esc(it.kw)}</div><div class="m">${meta}</div></div>`;
       }).join("")}</div>`;
@@ -710,6 +747,7 @@ function renderHome() {
   const h = DATA.hero || {};
   $("hero").innerHTML = `<span class="tag">오늘의 1픽</span><h1>${esc(h.title||h.kw||"")}</h1><p>${esc(h.reason||"")}</p><div class="score-float"><div class="n">0</div><div class="l">기회 점수</div></div>`;
   animateNum($("hero").querySelector(".score-float .n"), Math.round(h.score||100));
+  computeHoney();
   renderHoney();
   renderNew();
   $("chips").innerHTML = CATS.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
@@ -938,11 +976,11 @@ const SAMPLE = {
   hero: { kw:"제습기", title:"제습기, 지금이 골든타임", score:100, reason:"어제 검색 +62% 급등, 경쟁은 아직 보통. 장마 끝 곰팡이 시즌 각도로." },
   tabs: {
     "전체": [
-      { kw:"제습기", cat:"디지털/가전", score:100, wow:26, hot:true, blog:379967, spark:[68,68,61,60,48,45,45,35,34,26,25,27,35,57], sojae:["8월 제습기 TOP 3 비교","가성비 제습기 추천","장마 끝 곰팡이 방지 제습 루틴"] },
-      { kw:"후쿠오카 여행", cat:"여행 · 마이리얼트립", score:94, wow:-3, blog:278622, spark:[84,81,81,80,75,72,83,100,100,92,82,82,70,80], sojae:["후쿠오카 유후인 버스투어 비교","후쿠오카 2박 3일 경비 정리","후쿠오카 이심·교통패스 준비물"],
+      { kw:"제습기", cat:"디지털/가전", score:100, wow:26, hot:true, vol:74600, stars:2.5, starParts:{ad:1.1,sat:0.55,depth:0.5,trend:0.5}, spark:[68,68,61,60,48,45,45,35,34,26,25,27,35,57], sojae:["8월 제습기 TOP 3 비교","가성비 제습기 추천","장마 끝 곰팡이 방지 제습 루틴"] },
+      { kw:"후쿠오카 여행", cat:"여행 · 마이리얼트립", score:94, wow:-3, vol:60300, stars:3, starParts:{ad:1.1,sat:0.92,depth:0.75,trend:0.25}, spark:[84,81,81,80,75,72,83,100,100,92,82,82,70,80], sojae:["후쿠오카 유후인 버스투어 비교","후쿠오카 2박 3일 경비 정리","후쿠오카 이심·교통패스 준비물"],
         deals:[{name:"라쿠투어 유후인·벳푸 버스투어",price:"52,900원~",rating:"4.9",url:"https://experiences.myrealtrip.com/products/3153599"},{name:"인디고트래블 버스투어",price:"59,000원~",rating:"5.0",url:"https://experiences.myrealtrip.com/products/3417851"},{name:"일본 eSIM 무제한",price:"1,200원~",rating:"4.4",url:"https://experiences.myrealtrip.com/products/3456828"}] },
-      { kw:"클렌징오일", cat:"화장품/미용", score:83, wow:11, blog:609285, spark:[69,99,77,102,81,73,66,81,66,100,51,39,54,73], sojae:["클렌징오일 TOP 3 비교","지성피부 클렌징오일 추천","선크림 지우는 법"] },
-      { kw:"로봇청소기", cat:"디지털/가전", score:69, wow:36, hot:true, blog:324439, spark:[26,25,26,24,23,26,27,25,23,27,24,25,27,36], sojae:["로봇청소기 TOP 3 비교","가성비 로봇청소기 추천","물걸레 일체형 장단점"] }
+      { kw:"클렌징오일", cat:"화장품/미용", score:83, wow:11, vol:24800, stars:2, starParts:{ad:0.3,sat:0.48,depth:0.5,trend:0.35}, spark:[69,99,77,102,81,73,66,81,66,100,51,39,54,73], sojae:["클렌징오일 TOP 3 비교","지성피부 클렌징오일 추천","선크림 지우는 법"] },
+      { kw:"로봇청소기", cat:"디지털/가전", score:69, wow:36, hot:true, vol:41200, stars:3.5, starParts:{ad:2.0,sat:0.63,depth:0.5,trend:0.5}, spark:[26,25,26,24,23,26,27,25,23,27,24,25,27,36], sojae:["로봇청소기 TOP 3 비교","가성비 로봇청소기 추천","물걸레 일체형 장단점"] }
     ],
     "디지털/가전": [
       { kw:"제습기", score:100, wow:26, hot:true, spark:[68,68,61,60,48,45,45,35,34,26,25,27,35,57], sojae:["8월 제습기 TOP 3 비교","가성비 제습기 추천","장마 끝 곰팡이 방지 제습 루틴"] },
