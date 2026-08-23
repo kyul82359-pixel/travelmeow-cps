@@ -333,11 +333,19 @@ COMP_E = {"낮음": 1.30, "중간": 0.95, "높음": 0.62}
 # 지수가 상용 도구보다 좁다는 걸 알고 있기 때문에, 그 영향이 별점 전체를
 # 좌우하지 못하도록 일부러 1.5점으로 묶어둔 것이다.
 # ══════════════════════════════════════════════════════════════
-STAR_AD = {"낮음": 2.0, "중간": 1.1, "높음": 0.3}
-STAR_AD_UNKNOWN = 1.1
+# ── 배점표는 2026-08-23 실측 420개 분포로 보정했다 ──────────────
+# 상업성 필터(광고 3개 이상)를 통과한 키워드만 다루므로, 이 풀에는
+# compIdx '낮음'이 거의 없고(실측 중간 32% / 높음 68%),
+# plAvgDepth 도 8~10에 몰린다(10이 API 상한). 절대 기준을 그대로 쓰면
+# 전 키워드가 1~2점에 깔려서 5점 만점이 무의미해진다. 그래서
+# "상업 키워드들 사이에서의 상대적 여유"가 드러나도록 눈금을 맞췄다.
+STAR_AD = {"낮음": 2.0, "중간": 1.55, "높음": 0.95}
+STAR_AD_UNKNOWN = 1.25
 
-SAT_BASE = 0.5        # (누적 발행량 ÷ 월 검색량) 이 이하면 포화도 만점
-SAT_STEP = 4.0        # 비율이 4배 될 때마다 0.375점씩 깎는다
+# 포화도 = (블로그 누적 + 카페 누적) ÷ 월 검색량
+# 실측 분포: p10 1.44 · p25 5.70 · 중앙 19.21 · p75 77.74 · p90 168.22
+SAT_BEST = 1.5        # 이 이하면 만점
+SAT_WORST = 200.0     # 이 이상이면 0점
 SAT_MAX = 1.5
 
 
@@ -346,25 +354,30 @@ def _sat_points(posts, vol):
     if posts is None or not vol or vol <= 0:
         return None
     r = posts / float(vol)
-    if r <= SAT_BASE:
+    if r <= SAT_BEST:
         return SAT_MAX
-    steps = math.log(r / SAT_BASE, SAT_STEP)
-    return max(0.0, SAT_MAX - 0.375 * steps)
+    if r >= SAT_WORST:
+        return 0.0
+    span = math.log10(SAT_WORST) - math.log10(SAT_BEST)
+    return SAT_MAX * (1.0 - (math.log10(r) - math.log10(SAT_BEST)) / span)
 
 
 def _depth_points(ads):
-    """노출 광고 수: 광고주가 많이 붙을수록 그 자리를 두고 싸우는 사람이 많다."""
+    """노출 광고 수: 광고주가 많이 붙을수록 그 자리를 두고 싸우는 사람이 많다.
+    plAvgDepth 는 10에서 잘리므로 10은 '10 이상'으로 읽는다."""
     if ads is None:
         return 0.6
-    if ads <= 2:
+    if ads <= 4:
         return 1.0
-    if ads <= 5:
-        return 0.75
+    if ads <= 6:
+        return 0.85
+    if ads <= 7:
+        return 0.72
     if ads <= 8:
-        return 0.5
-    if ads <= 11:
-        return 0.3
-    return 0.15
+        return 0.6
+    if ads <= 9:
+        return 0.48
+    return 0.38
 
 
 def _trend_points(wow):
@@ -393,6 +406,11 @@ def competition_stars(row):
         # 발행량을 못 잰 키워드 — 모른다고 만점을 주지는 않는다. 중립값(0.75)으로 채운다.
         b = SAT_MAX * 0.5
     parts = {"ad": a, "sat": round(b, 2), "depth": c, "trend": d, "est": est}
+    posts, vol = row.get("posts"), row.get("vol")
+    if posts is not None and vol:
+        # 원자료도 같이 남긴다 — 다음 보정 때 로그를 다시 뒤지지 않아도 되도록
+        parts["r"] = round(posts / float(vol), 2)
+        parts["posts"] = posts
     total = a + b + c + d
     return round(min(5.0, max(0.0, total)) * 2) / 2.0, parts
 
