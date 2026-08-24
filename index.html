@@ -129,6 +129,16 @@
   .deal { display:flex; justify-content:space-between; gap:8px; font-size:12px; padding:7px 0; color:var(--ink); text-decoration:none; border-bottom:1px dashed var(--line); }
   .deal:last-child { border-bottom:0; }
   .deal .m { color:var(--ink2); white-space:nowrap; }
+  /* 쇼핑커넥트 수동 추천 · 쿠팡 파트너스 탭 */
+  .sojae.picks { margin:6px 16px 10px; }
+  .subtabs.cpick { flex-wrap:wrap; gap:6px; padding:2px 16px 10px; }
+  .cplist { margin:6px 16px 12px; background:var(--card); border-radius:24px; overflow:hidden; }
+  .cprow { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--page); }
+  .cprow:last-child { border-bottom:0; }
+  .cprow .cpn { flex:1; font-size:13px; line-height:1.45; }
+  .cprow .cpn .rk { display:inline-block; margin-left:6px; font-size:10px; font-weight:700; color:#fff; background:#2a78d6; border-radius:4px; padding:1px 5px; vertical-align:1px; }
+  .cprow .cpp { font-size:13px; font-weight:700; white-space:nowrap; }
+  .cprow .cpb { flex:0 0 auto; font-size:11px; padding:6px 10px; white-space:nowrap; }
   .rows { margin:6px 16px 12px; background:var(--card); border-radius:24px; overflow:hidden; }
   .row { border-bottom:1px solid var(--page); }
   .row:last-child { border-bottom:0; }
@@ -510,6 +520,16 @@
         <li>여행 탭에서 추천된 상품을 세시간전에서 검색 → 제휴링크 발급</li>
         <li>마이리얼트립뿐 아니라 아고다·클룩 등 여러 여행 플랫폼 링크를 한 곳에서 만들 수 있어요</li>
       </ol>
+      <p><strong>여행 상품은 무조건 세시간전을 거쳐서 링크를 만드세요.</strong> 각 플랫폼에 따로 제휴 신청하면 승인·정산·수수료율을 전부 따로 관리해야 하고, 승인 문턱도 플랫폼마다 달라요. 세시간전 하나로 우회하면 발급·실적·정산이 한 곳에 모입니다.</p>
+    </div>
+    <div class="guide">
+      <h3>🛒 쿠팡 파트너스 탭 쓰는 법</h3>
+      <ol>
+        <li>쿠팡 파트너스(partners.coupang.com) 가입 → 채널 등록 → <strong>최종승인</strong>(누적 판매 15만원)까지 가야 API·자동화 기능이 열려요</li>
+        <li>쿠팡 탭은 <strong>카테고리별 판매 베스트</strong>를 하루 1회 받아옵니다. 무엇이 실제로 팔리는지 보고 소재를 고르는 용도예요</li>
+        <li>상품을 정했으면 [쿠팡에서 찾기]로 상품 페이지를 열고, <strong>본인 파트너스 계정에서 직접 링크를 발급</strong>하세요</li>
+      </ol>
+      <p>이 사이트는 <strong>일부러 파트너스 링크를 붙이지 않습니다.</strong> 여기 박힌 링크를 그대로 쓰면 클릭 수익이 사이트 주인에게 가버려요. 상품명·가격·순위만 보여주고 링크는 각자 만드는 구조입니다. 글에는 <span class="hlm">"이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다"</span> 문구를 반드시 넣어야 해요.</p>
     </div>
     <div class="guide">
       <h3>기회 점수 읽는 법</h3>
@@ -534,7 +554,7 @@
 
 <script type="module">
 /* ═══════════ 설정 ═══════════ */
-const ENTRY_CODE = "MEOW26";            // 입장코드 (바꾸려면 여기 수정)
+const ENTRY_CODE = "TRAVEL2026";        // 입장코드 (바꾸려면 여기 수정)
 const LEVELS = [
   { at:0,   e:"🌱", n:"새싹" },
   { at:50,  e:"🐣", n:"초보 셀러" },
@@ -552,8 +572,10 @@ const firebaseConfig = {
 };
 
 /* ═══════════ 리포트 데이터 ═══════════ */
-const CATS = ["전체","생활/건강","디지털/가전","식품","가구/인테리어","스포츠/레저","패션의류","출산/육아","화장품/미용","패션잡화","여가/생활편의","여행"];
+const CATS = ["전체","생활/건강","디지털/가전","식품","가구/인테리어","스포츠/레저","패션의류","출산/육아","화장품/미용","패션잡화","여가/생활편의","여행","쿠팡"];
 let DATA = null;
+let COUPANG = null;   // coupang.json — 쿠팡 파트너스 카테고리별 판매 베스트 (없으면 탭 자체를 숨김)
+let PICKS = null;     // connect_picks.json — 손으로 고른 쇼핑커넥트 추천 (카테고리별 최대 5)
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
@@ -572,6 +594,16 @@ async function loadData() {
         if (vols[it.kw] != null) it.vol = vols[it.kw];
       }));
     }
+  } catch(e) {}
+  // 쿠팡 파트너스 베스트 (하루 1회 배치). 파일이 없으면 조용히 넘어가고 탭도 안 뜬다.
+  try {
+    const c = await fetch("coupang.json", { cache:"no-store" });
+    if (c.ok) { const j = await c.json(); if (j && (j.cats||[]).length) COUPANG = j; }
+  } catch(e) {}
+  // 쇼핑커넥트 수동 추천 슬롯
+  try {
+    const p = await fetch("connect_picks.json", { cache:"no-store" });
+    if (p.ok) PICKS = await p.json();
   } catch(e) {}
 }
 
@@ -664,18 +696,56 @@ function rowHtml(it, i) {
   return `<div class="row"><div class="bar" data-x><span class="num">${String(i+1).padStart(2,"0")}</span><span class="r-kw">${esc(it.kw)}${isHoney(it)?" 🍯":""}${rankBadge(it)}${it.hot?' <span class="pill hot" style="font-size:10px;padding:2px 8px">급상승</span>':""}</span>${miniHtml(it)}${wowHtml(it.wow)}<span class="r-score">${Math.round(it.score)}</span>${spark(it.spark)}<span class="caret">▼</span></div><div class="open"><div class="meterrow" style="margin-bottom:10px">${honeyPill(it)}${idxPill(it)}${volPill(it)}${starPill(it)}</div>${subkwHtml(it)}${sojaeHtml(it)}${linkBtns(it)}</div></div>`;
 }
 
-let curTab = "전체", curSub = "커넥트";
+/* 쇼핑커넥트 추천 — connect_picks.json 에 손으로 채워 넣은 상품.
+   쇼핑커넥트는 크리에이터용 상품 API 가 없고 네이버 쇼핑 검색 API 도
+   2026-07-31 종료돼서 자동 수집이 불가능하다. 그래서 이 자리만 수동이다.
+   비어 있으면 박스 자체를 그리지 않는다. */
+function picksHtml(key) {
+  const list = ((PICKS && PICKS.picks && PICKS.picks[key]) || []).slice(0, 5);
+  if (!list.length) return "";
+  const rows = list.map(p => {
+    const inner = `<span>${esc(p.name || "")}</span><span class="m">${esc(p.note || "")}</span>`;
+    return p.url ? `<a class="deal" href="${esc(p.url)}" target="_blank" rel="noopener">${inner}</a>`
+                 : `<div class="deal">${inner}</div>`;
+  }).join("");
+  return `<div class="sojae picks"><div class="t">이 분야 커넥트 추천 ${list.length}</div>${rows}</div>`;
+}
+
+let curTab = "전체", curSub = "커넥트", curCp = 0;
 function renderTab() {
   const label = $("tab-label"), box = $("tab-content");
   $("subtabs").classList.toggle("hidden", curTab !== "여행");
+  if (curTab === "쿠팡") return renderCoupang(label, box);
   let key = curTab === "여행" ? `여행:${curSub}` : curTab;
   const items = (DATA.tabs && DATA.tabs[key]) || [];
   label.textContent = curTab === "전체" ? "종합 TOP 20" : `${curTab} TOP ${items.length||20}`;
   if (!items.length) { box.innerHTML = `<div class="placeholder">이 탭 데이터는 다음 리포트 회차에 채워져요</div>`; return; }
   if (curTab === "전체") box.innerHTML = `<div class="cardgrid">${items.map(cardHtml).join("")}</div>`;
-  else box.innerHTML = `<div class="rows">${items.map(rowHtml).join("")}</div>`;
+  else box.innerHTML = picksHtml(key) + `<div class="rows">${items.map(rowHtml).join("")}</div>`;
   box.querySelectorAll("[data-x]").forEach(b => b.addEventListener("click", () => b.parentNode.classList.toggle("expanded")));
   box.querySelectorAll("[data-ckw]").forEach(b => b.addEventListener("click", () => window.open(connectUrl(b.dataset.ckw), "_blank", "noopener")));
+}
+
+/* 쿠팡 파트너스 탭 — coupang.json(하루 1회 배치)만 읽는다. 실시간 호출 금지.
+   파트너스 딥링크는 일부러 안 붙인다. 링크를 여기 박으면 클릭 수익이
+   사이트 주인에게 가버리므로, 수강생이 각자 발급하도록 검색 버튼만 둔다. */
+function renderCoupang(label, box) {
+  const cats = (COUPANG && COUPANG.cats) || [];
+  if (!cats.length) {
+    label.textContent = "쿠팡 파트너스";
+    box.innerHTML = `<div class="placeholder">쿠팡 데이터는 파트너스 최종승인(누적 판매 15만원) 후 API 키를 넣으면 켜져요</div>`;
+    return;
+  }
+  if (curCp >= cats.length) curCp = 0;
+  const c = cats[curCp];
+  label.textContent = `쿠팡 판매 TOP ${c.items.length} · ${c.name}`;
+  const picker = `<div class="subtabs cpick">${cats.map((x,i)=>`<button class="subtab${i===curCp?" on":""}" data-cp="${i}">${esc(x.name)}</button>`).join("")}</div>`;
+  const rows = c.items.map(p => `<div class="cprow"><span class="num">${String(p.r).padStart(2,"0")}</span><span class="cpn">${esc(p.n)}${p.rocket?'<b class="rk">로켓</b>':""}</span><span class="cpp">${p.p!=null?p.p.toLocaleString()+"원":""}</span><button class="btn ghost cpb" data-cpq="${esc(p.n)}">쿠팡에서 찾기</button></div>`).join("");
+  box.innerHTML = picker + `<div class="cplist">${rows}</div>` +
+    `<div class="footer-note">쿠팡 파트너스 카테고리 베스트 · ${esc(COUPANG.updated||"")} 기준 하루 1회 갱신<br><strong>링크는 각자 만들어야 수익이 본인에게 갑니다.</strong> [쿠팡에서 찾기]로 상품을 연 뒤 파트너스에서 링크를 발급하세요.</div>`;
+  box.querySelectorAll("[data-cp]").forEach(b => b.addEventListener("click", () => { curCp = +b.dataset.cp; renderTab(); }));
+  box.querySelectorAll("[data-cpq]").forEach(b => b.addEventListener("click", () =>
+    window.open("https://www.coupang.com/np/search?q=" + encodeURIComponent(b.dataset.cpq), "_blank", "noopener")));
 }
 function nextRoundInfo() {
   const now = new Date();
@@ -751,7 +821,10 @@ function renderHome() {
   computeHoney();
   renderHoney();
   renderNew();
-  $("chips").innerHTML = CATS.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${esc(c)}</button>`).join("");
+  // 쿠팡 칩은 coupang.json 이 실제로 있을 때만 노출한다 (승인 전에는 아예 안 보이게)
+  const chipCats = CATS.filter(c => c !== "쿠팡" || COUPANG);
+  if (curTab === "쿠팡" && !COUPANG) curTab = "전체";
+  $("chips").innerHTML = chipCats.map(c=>`<button class="chip${c===curTab?" on":""}" data-c="${esc(c)}">${c==="쿠팡"?"🛒 쿠팡":esc(c)}</button>`).join("");
   $("chips").querySelectorAll(".chip").forEach(c => c.addEventListener("click", () => {
     curTab = c.dataset.c; location.hash = encodeURIComponent(curTab);
     $("chips").querySelectorAll(".chip").forEach(x=>x.classList.toggle("on", x===c));
