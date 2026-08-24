@@ -1,0 +1,30 @@
+name: update-coupang
+on:
+  schedule:
+    - cron: '20 22 * * *'      # 07:20 KST — 하루 1회만 (파트너스 호출 한도 보수적으로)
+  workflow_dispatch:
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+jobs:
+  coupang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: build coupang.json
+        env:
+          COUPANG_ACCESS_KEY: ${{ secrets.COUPANG_ACCESS_KEY }}
+          COUPANG_SECRET_KEY: ${{ secrets.COUPANG_SECRET_KEY }}
+        run: python3 scripts/coupang.py
+      - name: commit
+        run: |
+          git config user.name 'coupang-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add coupang.json
+          git diff --cached --quiet && { echo 'no change'; exit 0; }
+          git commit -m 'update coupang [bot]'
+          git pull --rebase --autostash || true
+          git push
