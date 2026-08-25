@@ -801,7 +801,7 @@ function renderNew() {
   }
   if (!list.length) { box.classList.add("hidden"); return; }
   box.classList.remove("hidden");
-  box.innerHTML = `<div class="nz-t">🆕 오늘 새로 들어온 키워드 <em>직전 회차엔 없던 ${list.length}개예요</em></div>`
+  box.innerHTML = `<div class="nz-t">🆕 오늘 새로 들어온 키워드 <em>요 며칠 새 처음 올라온 소재예요</em></div>`
     + `<div class="nz-cards">${list.map(it => {
         const meta = [
           it.vol != null ? `월 검색 <b>${fmtN(it.vol)}</b>` : "",
