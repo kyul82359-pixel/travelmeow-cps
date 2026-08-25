@@ -7,8 +7,7 @@ v7 일일 로테이션 — data.json 자동 생성 (세션 없이 GitHub Actions
   seeds.json          카테고리 정의
   keywords_pool.json  harvest가 모은 상업성 키워드 풀
   pool_history.json   회차별 검색량 스냅샷 (성장률)
-  rotation.json       최근 회차별 노출 키워드 (중복 방지)
-  data.json           직전 회차 (순위 변동 / NEW 판정)
+  rotation.json       최근 회차별 노출 키워드 (중복 방지 + 순위 변동 / NEW 판정)
 
 출력
   data.json           사이트가 읽는 최종 데이터
@@ -70,6 +69,9 @@ TABS = ["생활/건강", "디지털/가전", "식품", "가구/인테리어", "�
 PER_TAB = 20          # 탭당 노출 개수
 CANDIDATES = 35       # 보강 API를 태울 후보 수 (탭당)
 EXCLUDE_ROUNDS = 3    # 최근 N회차에 나온 키워드는 제외
+HISTORY_KEEP = 12     # rotation.json 에 남길 회차 수 (약 4일).
+                      # NEW·순위변동을 이 히스토리로 판정하므로 EXCLUDE_ROUNDS 보다
+                      # 넉넉해야 한다 (최소 EXCLUDE_ROUNDS + 2)
 BLOG_TH = [1000, 5000]    # 월간 발행량 기준: 낮음 <1,000 / 보통 <5,000 / 높음
                           # (2026-08-20 실측 재보정: 에이블트라이크 760, 홍콩여행 4,350,
                           #  팔찌 9,000, 꽃다발 12,900, 호텔 30,000+)
@@ -562,8 +564,6 @@ def main():
     pool = jload("keywords_pool.json", {}).get("categories", {})
     hist = jload("pool_history.json", {"snapshots": []})
     rot = jload("rotation.json", {"round": 0, "history": []})
-    prev = jload("data.json", {})
-    prev_tabs = prev.get("tabs", {})
 
     if not pool:
         print("keywords_pool.json 이 비어 있습니다. harvest 먼저 실행하세요.")
@@ -577,6 +577,21 @@ def main():
         for kws in h.get("kws", {}).values():
             recent.update(kws)
     print("최근 %d회차 제외 대상: %d개" % (EXCLUDE_ROUNDS, len(recent)))
+
+    # ── NEW · 순위변동 판정 기준 (rotation.json 히스토리) ───────
+    # 로테이션이 최근 EXCLUDE_ROUNDS 회차 키워드를 후보에서 빼기 때문에
+    # "직전 회차 data.json 과 비교"하면 겹칠 수가 구조적으로 0이라
+    # 매 회차 전 항목이 NEW 로 찍히고 ▲▼ 는 영영 안 뜬다.
+    # 그래서 히스토리 전체(HISTORY_KEEP 회차)를 기준으로 본다.
+    #   NEW = 히스토리 어디에도 없던 키워드
+    #   ▲▼ = 같은 탭에서 마지막으로 나왔던 회차의 순위 대비
+    seen_kws, last_rank = set(), {}
+    for h in rot.get("history", []):          # 오래된 → 최신 순, 뒤엣것이 이김
+        for c, kws in h.get("kws", {}).items():
+            for i, k in enumerate(kws):
+                seen_kws.add(k)
+                last_rank[(c, k)] = i
+    print("히스토리 %d회차 · 기존 키워드 %d개" % (len(rot.get("history", [])), len(seen_kws)))
 
     # ── 1차: SearchAd 신호만으로 후보 추림 ──────────────────────
     cand = {}
@@ -753,7 +768,6 @@ def main():
         rows.sort(key=lambda r: (-r["score"], -(r.get("ads") or 0), -(r.get("vol") or 0)))
         picked = rows[:PER_TAB]
 
-        prev_rank = {it["kw"]: i for i, it in enumerate(prev_tabs.get(cat, []))}
         out = []
         for i, r in enumerate(picked):
             stars, parts = competition_stars(r)
@@ -773,9 +787,9 @@ def main():
                 item["hot"] = True
             elif r.get("_growth") and r["_growth"] >= 1.25:
                 item["hot"] = True
-            if r["kw"] in prev_rank:
-                item["rankd"] = prev_rank[r["kw"]] - i
-            else:
+            if (cat, r["kw"]) in last_rank:
+                item["rankd"] = last_rank[(cat, r["kw"])] - i
+            elif r["kw"] not in seen_kws:
                 item["new"] = True
             out.append(item)
         tabs[cat] = out
@@ -830,27 +844,24 @@ def main():
             all_tab.append(it)
         if len(all_tab) >= PER_TAB:
             break
-    prev_all = {it["kw"]: i for i, it in enumerate(prev_tabs.get("전체", []))}
     for i, it in enumerate(all_tab):
         it.pop("rankd", None)
         it.pop("new", None)
-        if it["kw"] in prev_all:
-            it["rankd"] = prev_all[it["kw"]] - i
-        else:
+        if ("전체", it["kw"]) in last_rank:
+            it["rankd"] = last_rank[("전체", it["kw"])] - i
+        elif it["kw"] not in seen_kws:
             it["new"] = True
     tabs = {"전체": all_tab, **tabs}
 
     # ── 🆕 오늘 새로 들어온 키워드 ──────────────────────────────
-    prev_all_kws = set()
-    for items in prev_tabs.values():
-        for it in items:
-            prev_all_kws.add(it.get("kw"))
-    newkw = []
+    newkw, nseen = [], set()
     for cat in TABS:
         for it in tabs[cat]:
-            if it["kw"] not in prev_all_kws:
-                newkw.append({"kw": it["kw"], "cat": cat, "score": it["score"],
-                              "vol": it.get("vol"), "stars": it.get("stars")})
+            if it["kw"] in seen_kws or it["kw"] in nseen:
+                continue
+            nseen.add(it["kw"])
+            newkw.append({"kw": it["kw"], "cat": cat, "score": it["score"],
+                          "vol": it.get("vol"), "stars": it.get("stars")})
     newkw.sort(key=lambda x: -x["score"])
     newkw = newkw[:8]
 
@@ -889,8 +900,8 @@ def main():
     rot["history"] = (rot.get("history", []) + [{
         "round": round_no,
         "at": NOW.strftime("%Y-%m-%d %H:%M KST"),
-        "kws": {cat: [it["kw"] for it in tabs[cat]] for cat in TABS},
-    }])[-(EXCLUDE_ROUNDS + 2):]
+        "kws": {cat: [it["kw"] for it in tabs[cat]] for cat in ["전체"] + TABS},
+    }])[-HISTORY_KEEP:]
     json.dump(rot, open("rotation.json", "w"), ensure_ascii=False)
 
     print("=== 회차 %d (%s) | 신규 %d개 | rich=%s ===" %
